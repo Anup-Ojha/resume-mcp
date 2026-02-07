@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  resume-generator:
+    build: .
+    container_name: local-resume-creator
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./output:/app/output
+      - ./templates:/app/templates
+    environment:
+      - DEBUG=False
+      - APP_NAME=LaTeX Resume Generator
+    restart: always
+
+networks:
+  default:
+    name: resume-network

@@ -1,0 +1,153 @@
+\documentclass[a4paper,11pt]{article}
+
+\usepackage{mathptmx}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{multicol}
+
+% Page style
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+
+% Margins
+\addtolength{\oddsidemargin}{-0.55in}
+\addtolength{\evensidemargin}{-0.55in}
+\addtolength{\textwidth}{1.1in}
+\addtolength{\topmargin}{-0.55in}
+\addtolength{\textheight}{1.1in}
+
+\urlstyle{same}
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+% Section formatting
+\titlespacing*{\section}{0pt}{*0.7}{*0.4}
+\titleformat{\section}{
+  \scshape\raggedright\large\bfseries
+}{}{0em}{}[\titlerule]
+
+% Itemize formatting
+\setlist[itemize]{noitemsep, topsep=3pt, leftmargin=1.5em, label=--}
+\setlist[itemize,2]{label=$\diamond$, leftmargin=1.5em}
+
+\begin{document}
+
+% HEADER
+\begin{center}
+    {\LARGE \bfseries Anup Ojha} \\[2pt]
+    \small 
+    +91 9309109229 ~
+    \href{mailto:anup2001ojha@gmail.com}{anup2001ojha@gmail.com} ~
+    \href{https://linkedin.com/in/anup-ojha-11819b217/}{LinkedIn} ~
+    \href{https://github.com/Anup-Ojha}{GitHub} ~
+    \href{https://anup-ojha-dev-folio.vercel.app/}{Portfolio}
+\end{center}
+
+\vspace{-6pt}
+
+% EDUCATION
+\section{Education}
+\begin{itemize}
+    \item \textbf{Vivekanand Education Society's Institute of Technology} \hfill Aug 2023 -- Jul 2025 \\
+    Master of Computer Applications (GPA: 9.74) --- Mumbai
+    \item \textbf{Tirpude Institute of Management Education} \hfill Aug 2019 -- Jun 2022 \\
+    Bachelor of Commerce in Computer Application (GPA: 9.27) --- Nagpur
+\end{itemize}
+
+% EXPERIENCE
+\section{Experience}
+\begin{itemize}
+
+\item \textbf{Python / AI Developer --- Perimattic} \hfill Nov 2025 -- Present \\
+Mumbai, India
+\begin{itemize}
+    \item Architected and deployed \textbf{AI-driven backend systems} using \textbf{Python}, \textbf{FastAPI}, and \textbf{PostgreSQL}.
+    \item Implemented \textbf{RAG pipelines and agentic AI workflows} using \textbf{OpenAI APIs}, embeddings, vector databases, and tool-based reasoning.
+    \item Led backend development of \textbf{CareerMaker.ai}, an AI-powered resume intelligence platform:
+    \begin{itemize}
+        \item JD--Resume matching, scoring, gap analysis, and keyword optimization.
+        \item Resume parsing, scraping, and AI-generated improvement suggestions.
+        \item Scalable APIs supporting real-time analysis workloads.
+    \end{itemize}
+    \item Built AI-enabled backend services for \textbf{VirgoAsian Mobile App}:
+    \begin{itemize}
+        \item Image transformation into panel-based enhanced visuals.
+        \item AI-driven layout and content enhancement suggestions.
+    \end{itemize}
+    \item Developed an \textbf{AI analytics engine} for Instagram and YouTube profiles:
+    \begin{itemize}
+        \item Engagement, growth, and content performance analysis.
+        \item AI-based recommendations for content strategy optimization.
+    \end{itemize}
+    \item Successfully delivered and maintained \textbf{3+ production AI systems} with high availability.
+\end{itemize}
+
+\item \textbf{Backend Developer Intern --- Addy Fitness} \hfill Aug 2025 -- Nov 2025 \\
+Mumbai, India
+\begin{itemize}
+    \item Built and maintained 15+ REST APIs using \textbf{FastAPI} and \textbf{PostgreSQL}.
+    \item Implemented RBAC, secure JWT authentication, and session management.
+    \item Managed schema migrations using \textbf{Alembic} with zero downtime.
+    \item Improved backend reliability to \textbf{99.5\%} via testing and query optimization.
+\end{itemize}
+
+\item \textbf{Software Development Engineer Intern --- Go Digital Technology Consulting LLP} \hfill Dec 2024 -- Mar 2025 \\
+Mumbai, India
+\begin{itemize}
+    \item Developed an Attendance Management System using \textbf{Angular}, \textbf{Spring Boot}, and \textbf{MySQL}.
+    \item Implemented JWT \& OAuth authentication with RBAC-secured APIs.
+    \item Optimized REST APIs and SQL queries, reducing response time by \textbf{25\%}.
+    \item Built interactive \textbf{Chart.js} dashboards for HR analytics.
+\end{itemize}
+
+\end{itemize}
+
+% PROJECTS
+\section{Projects}
+\begin{itemize}
+    \item \textbf{Secure FastAPI CRUD Service} \\
+    \textit{Python, FastAPI, SQLAlchemy, PostgreSQL, JWT}
+    \begin{itemize}
+        \item Designed modular CRUD APIs with authentication and role-based authorization.
+        \item Optimized ORM queries with indexing and caching ($\sim$20\% improvement).
+        \item Delivered Swagger documentation and automated tests.
+    \end{itemize}
+
+    \item \textbf{ChatterSphere --- Real-Time Chat Platform} \\
+    \textit{Next.js, TypeScript, Tailwind CSS, Supabase}
+    \begin{itemize}
+        \item Built a real-time chat app supporting 200+ users.
+        \item Implemented presence tracking and live message synchronization.
+        \item Achieved \textbf{99.9\% uptime} through frontend and query optimization.
+    \end{itemize}
+
+\end{itemize}
+
+% TECHNICAL SKILLS
+\section{Technical Skills}
+\begin{itemize}
+    \item \textbf{Languages:} Python, Java, C++, TypeScript, SQL
+    \item \textbf{AI / ML:} OpenAI APIs, RAG, Agentic AI, Prompt Engineering, Embeddings
+    \item \textbf{Backend:} FastAPI, Spring Boot, Node.js, Express.js
+    \item \textbf{Frontend:} Angular, Next.js, React, Tailwind CSS
+    \item \textbf{Databases:} PostgreSQL, MySQL, MongoDB, Vector DBs
+    \item \textbf{Cloud \& DevOps:}  Docker, AWS (EC2, S3), Supabase, Git, Postman
+    \item \textbf{Tools:} SQLAlchemy, JWT, Alembic, Chart.js, Swagger
+\end{itemize}
+
+% CERTIFICATIONS
+\section{Certifications}
+\begin{itemize}
+    \item Mastering Data Structures \& Algorithms --- Udemy
+    \item C++ Programming: Beginner to Advanced --- Udemy
+    \item Python for Data Science --- NPTEL
+\end{itemize}
+
+\end{document}

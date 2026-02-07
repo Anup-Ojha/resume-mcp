@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LaTeX Resume Generator</title>
+    <meta name="description" content="Generate professional PDF resumes from LaTeX code with AI assistance">
+    
+    <!-- CodeMirror for syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
+    
+    <!-- Custom styles -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>📄 LaTeX Resume Generator</h1>
+            <p class="subtitle">Create professional PDF resumes with LaTeX</p>
+            <div id="health-status" class="health-status"></div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Panel: Editor -->
+            <div class="editor-panel">
+                <div class="panel-header">
+                    <h2>LaTeX Editor</h2>
+                    <div class="editor-actions">
+                        <button id="load-template-btn" class="btn btn-secondary">
+                            📋 Load Template
+                        </button>
+                        <button id="clear-btn" class="btn btn-secondary">
+                            🗑️ Clear
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="editor-wrapper">
+                    <textarea id="latex-editor"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="filename-input">PDF Filename</label>
+                    <div class="filename-input-group">
+                        <input 
+                            type="text" 
+                            id="filename-input" 
+                            placeholder="my-resume" 
+                            value="resume"
+                        >
+                        <span class="file-extension">.pdf</span>
+                    </div>
+                </div>
+
+                <button id="generate-btn" class="btn btn-primary btn-large">
+                    ⚡ Generate PDF
+                </button>
+
+                <div id="message-area" class="message-area"></div>
+            </div>
+
+            <!-- Right Panel: PDF List -->
+            <div class="pdf-panel">
+                <div class="panel-header">
+                    <h2>Generated PDFs</h2>
+                    <button id="refresh-btn" class="btn btn-secondary btn-small">
+                        🔄 Refresh
+                    </button>
+                </div>
+                
+                <div id="pdf-list" class="pdf-list">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>💡 <strong>Tip:</strong> This generator works with any LLM via MCP server. Ask your AI assistant to create or edit resumes!</p>
+            <p class="mcp-info">
+                <a href="https://github.com/yourusername/latex-resume-generator" target="_blank">📚 Documentation</a> | 
+                <a href="/docs" target="_blank">🔧 API Docs</a>
+            </p>
+        </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="spinner"></div>
+        <p>Generating PDF...</p>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/stex/stex.min.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

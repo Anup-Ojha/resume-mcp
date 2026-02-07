@@ -1,0 +1,46 @@
+# Use an official Python runtime as a parent image
+FROM python:3.10-slim-bullseye
+
+# Avoid prompts from apt
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Update and install system dependencies
+# We need texlive-latex-extra and related packages for the resume template
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    texlive-latex-recommended \
+    texlive-latex-extra \
+    texlive-fonts-recommended \
+    texlive-fonts-extra \
+    texlive-lang-english \
+    ghostscript \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy requirements file first to leverage Docker cache
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the application code
+COPY . .
+
+# Create necessary directories and set permissions
+RUN mkdir -p output temp templates static && \
+    chmod -R 777 output temp templates static
+
+# Expose the API port
+EXPOSE 8000
+
+# Set environment variables
+ENV APP_NAME="LaTeX Resume Generator"
+ENV DEBUG=False
+ENV HOST=0.0.0.0
+ENV PORT=8000
+
+# Command to run the application
+# We use uvicorn to serve the FastAPI app
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
