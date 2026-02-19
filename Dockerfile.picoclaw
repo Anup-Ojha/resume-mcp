@@ -1,0 +1,10 @@
+FROM golang:1.22-alpine AS builder
+RUN apk add --no-cache git
+RUN go install github.com/sipeed/picoclaw@latest
+
+FROM alpine:latest
+RUN apk add --no-cache ca-certificates curl
+COPY --from=builder /go/bin/picoclaw /usr/local/bin/picoclaw
+WORKDIR /root/
+COPY picoclaw/ /root/.picoclaw/
+CMD ["picoclaw", "gateway"]

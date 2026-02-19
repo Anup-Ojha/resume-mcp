@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   resume-generator:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.resume
     container_name: local-resume-creator
     ports:
       - "8000:8000"
@@ -12,6 +14,30 @@ services:
     environment:
       - DEBUG=False
       - APP_NAME=LaTeX Resume Generator
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  picoclaw:
+    build:
+      context: .
+      dockerfile: Dockerfile.picoclaw
+    container_name: picoclaw-gateway
+    depends_on:
+      resume-generator:
+        condition: service_healthy
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PICOCLAW_AGENTS_DEFAULTS_RESTRICT_TO_WORKSPACE=false
+    volumes:
+      - ./picoclaw:/root/.picoclaw
+      - ./output:/output
     restart: always
 
 networks:

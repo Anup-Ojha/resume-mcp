@@ -1,0 +1,29 @@
+{
+  "agents": {
+    "defaults": {
+      "model": "gemini-2.0-flash-exp",
+      "max_tokens": 4096,
+      "temperature": 0.4,
+      "max_tool_iterations": 10,
+      "workspace": "/root/.picoclaw/workspace",
+      "restrict_to_workspace": false
+    }
+  },
+  "providers": {
+    "gemini": {
+      "api_key": "${GEMINI_API_KEY}"
+    }
+  },
+  "channels": {
+    "whatsapp": {
+      "enabled": true
+    }
+  },
+  "mcp": {
+    "servers": {
+      "resume-mcp": {
+        "url": "http://resume-generator:8000/mcp/sse"
+      }
+    }
+  }
+}

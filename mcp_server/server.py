@@ -16,8 +16,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from mcp.server import Server
 from mcp.types import Tool, TextContent, ImageContent, EmbeddedResource
 import mcp.server.stdio
+from mcp.server.sse import SseServerTransport
+from starlette.applications import Starlette
+from starlette.routing import Route
 
 from app.latex_processor import latex_processor
+from app.document_parser import document_parser
+from app.resume_customizer import resume_customizer
 from app.config import settings
 
 
@@ -114,6 +119,55 @@ async def list_tools() -> list[Tool]:
                     }
                 },
                 "required": ["filename"]
+            }
+        ),
+        Tool(
+            name="parse_job_description",
+            description=(
+                "Parse a job description text and extract key requirements, skills, and keywords. "
+                "This helps analyze what a job posting is looking for before customizing a resume."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "jd_text": {
+                        "type": "string",
+                        "description": "Job description text to analyze"
+                    }
+                },
+                "required": ["jd_text"]
+            }
+        ),
+        Tool(
+            name="customize_resume_for_jd",
+            description=(
+                "Generate a customized resume tailored to a specific job description. "
+                "Uses AI to analyze the JD requirements and emphasize relevant skills and experience. "
+                "Requires GEMINI_API_KEY or GOOGLE_API_KEY to be set in environment variables."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "jd_text": {
+                        "type": "string",
+                        "description": "Job description text to tailor the resume for"
+                    },
+                    "filename": {
+                        "type": "string",
+                        "description": "Output PDF filename (without .pdf extension)",
+                        "default": "customized_resume"
+                    },
+                    "user_details": {
+                        "type": "object",
+                        "description": "Optional additional user information to incorporate",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "skills": {"type": "array", "items": {"type": "string"}},
+                            "experience": {"type": "array", "items": {"type": "string"}}
+                        }
+                    }
+                },
+                "required": ["jd_text"]
             }
         )
     ]
@@ -258,6 +312,149 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent | ImageConte
                 )
             ]
     
+    elif name == "parse_job_description":
+        jd_text = arguments.get("jd_text", "")
+        
+        if not jd_text:
+            return [
+                TextContent(
+                    type="text",
+                    text="❌ Error: jd_text is required"
+                )
+            ]
+        
+        try:
+            # Extract requirements using regex
+            requirements = document_parser.extract_jd_requirements(jd_text)
+            
+            # Enhance with AI if available
+            if resume_customizer.is_available():
+                requirements = resume_customizer.analyze_jd(jd_text, requirements)
+            
+            # Format output
+            output = "📋 Job Description Analysis:\n\n"
+            
+            if requirements.get('skills'):
+                output += f"🔧 Technical Skills: {', '.join(requirements['skills'][:10])}\n\n"
+            
+            if requirements.get('experience_years'):
+                output += f"📅 Experience Required: {requirements['experience_years']}+ years\n\n"
+            
+            if requirements.get('education'):
+                output += f"🎓 Education: {', '.join(requirements['education'][:3])}\n\n"
+            
+            if requirements.get('ai_insights'):
+                ai = requirements['ai_insights']
+                if ai.get('technical_skills'):
+                    output += f"💡 Top Technical Skills (AI): {', '.join(ai['technical_skills'][:5])}\n\n"
+                if ai.get('soft_skills'):
+                    output += f"🤝 Soft Skills (AI): {', '.join(ai['soft_skills'][:3])}\n\n"
+            
+            if requirements.get('keywords'):
+                output += f"🔑 Keywords: {', '.join(requirements['keywords'][:10])}\n"
+            
+            return [
+                TextContent(
+                    type="text",
+                    text=output
+                )
+            ]
+        
+        except Exception as e:
+            return [
+                TextContent(
+                    type="text",
+                    text=f"❌ Error parsing JD: {str(e)}"
+                )
+            ]
+    
+    elif name == "customize_resume_for_jd":
+        jd_text = arguments.get("jd_text", "")
+        filename = arguments.get("filename", "customized_resume")
+        user_details = arguments.get("user_details")
+        
+        if not jd_text:
+            return [
+                TextContent(
+                    type="text",
+                    text="❌ Error: jd_text is required"
+                )
+            ]
+        
+        # Check if AI is available
+        if not resume_customizer.is_available():
+            return [
+                TextContent(
+                    type="text",
+                    text="❌ AI customization not available. Please set GEMINI_API_KEY or GOOGLE_API_KEY environment variable."
+                )
+            ]
+        
+        try:
+            # Remove .pdf extension if provided
+            if filename.endswith('.pdf'):
+                filename = filename[:-4]
+            
+            # Extract JD requirements
+            requirements = document_parser.extract_jd_requirements(jd_text)
+            requirements = resume_customizer.analyze_jd(jd_text, requirements)
+            
+            # Get base template
+            template_file = settings.templates_dir / "default_resume.tex"
+            if not template_file.exists():
+                return [
+                    TextContent(
+                        type="text",
+                        text="❌ Error: Default template not found"
+                    )
+                ]
+            
+            original_latex = template_file.read_text(encoding='utf-8')
+            
+            # Customize the resume
+            success, customized_latex, message = resume_customizer.customize_resume(
+                original_latex,
+                requirements,
+                user_details
+            )
+            
+            if not success:
+                return [
+                    TextContent(
+                        type="text",
+                        text=f"❌ Error customizing resume: {message}"
+                    )
+                ]
+            
+            # Generate PDF
+            pdf_success, pdf_bytes, pdf_message = latex_processor.compile_latex_to_pdf(
+                customized_latex,
+                filename
+            )
+            
+            if pdf_success:
+                return [
+                    TextContent(
+                        type="text",
+                        text=f"✅ Resume customized successfully!\n\n{pdf_message}\n\nThe resume has been tailored to match the job requirements."
+                    )
+                ]
+            else:
+                return [
+                    TextContent(
+                        type="text",
+                        text=f"❌ Error generating PDF: {pdf_message}"
+                    )
+                ]
+        
+        except Exception as e:
+            return [
+                TextContent(
+                    type="text",
+                    text=f"❌ Error: {str(e)}"
+                )
+            ]
+    
     else:
         return [
             TextContent(
@@ -267,15 +464,32 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent | ImageConte
         ]
 
 
+# FastAPI/SSE Integration
+sse = SseServerTransport("/messages")
+
+async def handle_sse(request):
+    async with sse.connect_sse(request.scope, request.receive, request._send) as (read_stream, write_stream):
+        await app.run(read_stream, write_stream, app.create_initialization_options())
+
+async def handle_messages(request):
+    await sse.handle_post_message(request.scope, request.receive, request._send)
+
+mcp_app = Starlette(
+    debug=True,
+    routes=[
+        Route("/sse", endpoint=handle_sse),
+        Route("/messages", endpoint=handle_messages, methods=["POST"]),
+    ],
+)
+
 async def main():
-    """Run the MCP server"""
+    """Run the MCP server over stdio"""
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
         await app.run(
             read_stream,
             write_stream,
             app.create_initialization_options()
         )
-
 
 if __name__ == "__main__":
     asyncio.run(main())
