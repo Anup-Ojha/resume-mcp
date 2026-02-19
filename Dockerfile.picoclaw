@@ -3,6 +3,7 @@ RUN apk add --no-cache git make
 WORKDIR /src
 RUN git clone https://github.com/sipeed/picoclaw.git .
 RUN go mod download
+RUN cp -r workspace cmd/picoclaw/workspace
 RUN go build -o /go/bin/picoclaw ./cmd/picoclaw
 
 FROM alpine:latest
