@@ -34,6 +34,7 @@ services:
         condition: service_healthy
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - PICOCLAW_AGENTS_DEFAULTS_RESTRICT_TO_WORKSPACE=false
     volumes:
       - ./picoclaw:/root/.picoclaw

@@ -16,7 +16,11 @@
   },
   "channels": {
     "whatsapp": {
-      "enabled": true
+      "enabled": false
+    },
+    "telegram": {
+      "enabled": true,
+      "token": "${TELEGRAM_BOT_TOKEN}"
     }
   },
   "mcp": {
