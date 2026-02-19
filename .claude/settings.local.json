@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:generativelanguage.googleapis.com)",
+      "Bash(sudo docker ps:*)",
+      "Bash(docker:*)",
+      "Bash(echo:*)",
+      "Bash(cmd.exe /c \"docker ps\")",
+      "Bash(cmd.exe /c \"docker ps 2>&1\")",
+      "Bash(powershell.exe -Command:*)",
+      "Bash(tr:*)"
+    ]
+  }
+}

@@ -207,12 +207,14 @@ async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not result.get("pdfs"):
         await update.message.reply_text("No PDFs generated yet. Use /create to make one!")
         return
-    msg = "📄 *Your Generated PDFs:*\n\n"
+    # Send without parse_mode to avoid issues with underscores in filenames/URLs
+    msg = "📄 Your Generated PDFs:\n\n"
     for pdf in result["pdfs"]:
         name = pdf["filename"]
         size_kb = pdf["size"] / 1024
-        msg += f"• [{name}]({PUBLIC_URL}/api/pdfs/{name}) ({size_kb:.1f} KB)\n"
-    await update.message.reply_text(msg, parse_mode="Markdown")
+        download_url = f"{PUBLIC_URL}/api/pdfs/{name}"
+        msg += f"• {name} ({size_kb:.1f} KB)\n  {download_url}\n\n"
+    await update.message.reply_text(msg)
 
 
 # ── Conversation Handlers ─────────────────────────────────────────────────────
@@ -234,30 +236,32 @@ async def collect_resume_details(update: Update, context: ContextTypes.DEFAULT_T
     if result.get("success"):
         pdf_filename = result.get("filename", f"{filename}.pdf")
         download_url = f"{PUBLIC_URL}/api/pdfs/{pdf_filename}"
+        # No parse_mode - filenames with underscores break Markdown parsing
         await update.message.reply_text(
-            f"✅ *Your resume is ready!*\n\n"
-            f"📥 Download: {download_url}\n\n"
-            f"_Tip: Use /tailor to customize it for a specific job!_",
-            parse_mode="Markdown"
+            f"✅ Your resume is ready!\n\n"
+            f"📥 Download here:\n{download_url}\n\n"
+            f"Tip: Use /tailor to customize it for a specific job!"
         )
     else:
         # Fallback: build basic LaTeX and generate directly
+        logger.warning(f"customize_resume failed: {result.get('message')}. Trying fallback.")
         latex = build_latex_from_details(user_text)
         gen_result = generate_pdf(latex, filename)
         if gen_result.get("success"):
             pdf_filename = gen_result.get("filename", f"{filename}.pdf")
             download_url = f"{PUBLIC_URL}/api/pdfs/{pdf_filename}"
+            # No parse_mode - filenames with underscores break Markdown parsing
             await update.message.reply_text(
-                f"✅ *Resume generated!*\n\n"
-                f"📥 Download: {download_url}\n\n"
-                f"_Note: For AI-powered customization, ensure GEMINI_API_KEY is set._",
-                parse_mode="Markdown"
+                f"✅ Resume generated!\n\n"
+                f"📥 Download here:\n{download_url}\n\n"
+                f"Note: For AI-powered customization, ensure GEMINI_API_KEY is set."
             )
         else:
+            error_msg = gen_result.get('message', 'Unknown error')
+            logger.error(f"generate_pdf also failed: {error_msg}")
             await update.message.reply_text(
-                f"❌ *Error generating resume:*\n{gen_result.get('message', 'Unknown error')}\n\n"
-                f"Please check your details and try again with /create",
-                parse_mode="Markdown"
+                f"❌ Error generating resume:\n{error_msg}\n\n"
+                f"Please check your details and try again with /create"
             )
 
     return ConversationHandler.END
@@ -274,16 +278,15 @@ async def collect_jd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if result.get("success"):
         pdf_filename = result.get("filename", f"{filename}.pdf")
         download_url = f"{PUBLIC_URL}/api/pdfs/{pdf_filename}"
+        # No parse_mode - filenames with underscores break Markdown parsing
         await update.message.reply_text(
-            f"✅ *Tailored resume ready!*\n\n"
-            f"📥 Download: {download_url}",
-            parse_mode="Markdown"
+            f"✅ Tailored resume ready!\n\n"
+            f"📥 Download here:\n{download_url}"
         )
     else:
         await update.message.reply_text(
-            f"❌ *Error:* {result.get('message', 'Unknown error')}\n\n"
-            f"Make sure GEMINI_API_KEY is configured.",
-            parse_mode="Markdown"
+            f"❌ Error: {result.get('message', 'Unknown error')}\n\n"
+            f"Make sure GEMINI_API_KEY is configured."
         )
 
     return ConversationHandler.END
