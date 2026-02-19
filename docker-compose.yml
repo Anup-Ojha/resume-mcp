@@ -24,21 +24,18 @@ services:
       timeout: 10s
       retries: 3
 
-  picoclaw:
+  telegram-bot:
     build:
       context: .
-      dockerfile: Dockerfile.picoclaw
-    container_name: picoclaw-gateway
+      dockerfile: Dockerfile.telegram
+    container_name: resume-telegram-bot
     depends_on:
       resume-generator:
         condition: service_healthy
     environment:
-      - PICOCLAW_CHANNELS_TELEGRAM_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - PICOCLAW_PROVIDERS_GEMINI_API_KEY=${GEMINI_API_KEY}
-      - PICOCLAW_AGENTS_DEFAULTS_RESTRICT_TO_WORKSPACE=false
-    volumes:
-      - ./picoclaw:/root/.picoclaw
-      - ./output:/output
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - RESUME_API_URL=http://resume-generator:8000
+      - PUBLIC_URL=${PUBLIC_URL}
     restart: always
 
 networks:
