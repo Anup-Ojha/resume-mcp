@@ -135,7 +135,11 @@ class LaTeXProcessor:
             # Copy to output directory
             output_path = self.output_dir / f"{output_filename}.pdf"
             shutil.copy2(pdf_file, output_path)
-            
+
+            # Save LaTeX source alongside PDF so future tailoring can use it directly
+            tex_output_path = self.output_dir / f"{output_filename}.tex"
+            tex_output_path.write_text(latex_code, encoding='utf-8')
+
             return True, pdf_bytes, f"PDF generated successfully: {output_filename}.pdf"
             
         except subprocess.TimeoutExpired:
@@ -154,6 +158,13 @@ class LaTeXProcessor:
         except Exception as e:
             print(f"Warning: Could not clean up {directory}: {e}")
     
+    def get_latex_source(self, base_name: str) -> Optional[str]:
+        """Return saved LaTeX source for a given base name (without extension), or None."""
+        tex_path = self.output_dir / f"{base_name}.tex"
+        if tex_path.exists():
+            return tex_path.read_text(encoding='utf-8')
+        return None
+
     def get_pdf_path(self, filename: str) -> Optional[Path]:
         """Get the path to a generated PDF"""
         if not filename.endswith('.pdf'):

@@ -43,6 +43,12 @@ class Settings(BaseSettings):
     max_file_size: int = 10 * 1024 * 1024  # 10 MB
 
     
+    # Google OAuth (required for Gmail integration)
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    # Public URL of this API service (used as OAuth redirect_uri)
+    public_api_url: str = "http://localhost:8000"
+
     # Server settings
     host: str = "0.0.0.0"
     port: int = 8000

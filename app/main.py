@@ -1,7 +1,8 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Query
+from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 import logging
@@ -12,6 +13,8 @@ from app.config import settings
 from app.latex_processor import latex_processor
 from app.document_parser import document_parser
 from app.resume_customizer import resume_customizer
+from app.db import db
+import app.auth as auth_module
 from mcp_server.server import mcp_app
 
 # Configure logging
@@ -362,6 +365,264 @@ async def customize_resume(
     except Exception as e:
         logger.error(f"Error customizing resume: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/tailor-smart", response_model=PDFResponse)
+async def tailor_smart(
+    jd_text: str = Form(...),
+    user_id: str = Form(...),
+    resume_file: Optional[UploadFile] = File(None),
+    resume_text: Optional[str] = Form(None),
+    filename: Optional[str] = Form(None),
+):
+    """
+    Smart tailor endpoint.
+
+    Priority order for resume source:
+    1. Saved LaTeX source for user (resume_{user_id}.tex) — best quality
+    2. Uploaded resume_file (PDF / DOCX / image)
+    3. Typed resume_text
+
+    The resume is tailored to the provided job description and returned as a PDF.
+    """
+    if not resume_customizer.is_available():
+        raise HTTPException(
+            status_code=503,
+            detail="AI not available. Please set GEMINI_API_KEY environment variable."
+        )
+
+    clean_user_id = user_id.strip()
+    output_filename = ((filename or f"tailored_{clean_user_id}").strip())
+    if output_filename.endswith(".pdf"):
+        output_filename = output_filename[:-4]
+
+    # Extract JD requirements
+    requirements = document_parser.extract_jd_requirements(jd_text)
+    requirements = resume_customizer.analyze_jd(jd_text, requirements)
+
+    # ── 1. Existing LaTeX source (best quality) ──────────────────────────────
+    existing_latex = latex_processor.get_latex_source(f"resume_{clean_user_id}")
+    if existing_latex:
+        logger.info(f"Using saved LaTeX source for user {clean_user_id}")
+        success, tailored_latex, msg = resume_customizer.customize_resume(
+            existing_latex, requirements
+        )
+        if not success:
+            raise HTTPException(status_code=500, detail=msg)
+
+    # ── 2. Uploaded file ─────────────────────────────────────────────────────
+    elif resume_file:
+        suffix = Path(resume_file.filename or "resume.pdf").suffix
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(await resume_file.read())
+            tmp_path = Path(tmp.name)
+        try:
+            ok, parsed_text, parse_msg = document_parser.parse_file(tmp_path)
+            if not ok:
+                raise HTTPException(status_code=400, detail=f"Could not parse file: {parse_msg}")
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+        logger.info(f"Tailoring from uploaded file for user {clean_user_id}")
+        success, tailored_latex, msg = resume_customizer.create_tailored_resume_from_text(
+            parsed_text, requirements
+        )
+        if not success:
+            raise HTTPException(status_code=500, detail=msg)
+
+    # ── 3. Typed resume text ─────────────────────────────────────────────────
+    elif resume_text:
+        logger.info(f"Tailoring from typed text for user {clean_user_id}")
+        success, tailored_latex, msg = resume_customizer.create_tailored_resume_from_text(
+            resume_text, requirements
+        )
+        if not success:
+            raise HTTPException(status_code=500, detail=msg)
+
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="No resume source found. Provide resume_file or resume_text."
+        )
+
+    # Compile tailored LaTeX to PDF
+    pdf_success, _, pdf_message = latex_processor.compile_latex_to_pdf(
+        tailored_latex, output_filename
+    )
+    if pdf_success:
+        return PDFResponse(
+            success=True,
+            message=pdf_message,
+            filename=f"{output_filename}.pdf"
+        )
+    raise HTTPException(status_code=500, detail=pdf_message)
+
+
+@app.get("/api/resume-exists/{user_id}")
+async def resume_exists(user_id: str):
+    """Check whether a saved resume exists for a Telegram user."""
+    clean = user_id.strip()
+    has_tex = (settings.output_dir / f"resume_{clean}.tex").exists()
+    has_pdf = (settings.output_dir / f"resume_{clean}.pdf").exists()
+    return {"exists": has_tex or has_pdf, "has_latex": has_tex, "has_pdf": has_pdf}
+
+
+# ── Google OAuth endpoints ────────────────────────────────────────────────────
+
+@app.get("/auth/url")
+async def get_auth_url(telegram_user_id: str = Query(...)):
+    """Return a Google OAuth2 URL the Telegram bot can send to the user."""
+    if not settings.google_client_id:
+        raise HTTPException(status_code=503, detail="Google OAuth not configured. Set GOOGLE_CLIENT_ID.")
+    url = auth_module.build_auth_url(telegram_user_id)
+    return {"url": url}
+
+
+@app.get("/auth/google/callback", response_class=HTMLResponse)
+async def google_callback(code: str = Query(None), state: str = Query(None), error: str = Query(None)):
+    """
+    Google redirects here after user consents.
+    Stores tokens in Supabase and returns a user-friendly HTML page.
+    """
+    if error:
+        return HTMLResponse(_callback_html("❌ Login cancelled", f"Google returned: {error}", success=False))
+
+    if not code or not state:
+        return HTMLResponse(_callback_html("❌ Bad request", "Missing code or state parameter.", success=False))
+
+    telegram_user_id = auth_module.decode_state(state)
+    if not telegram_user_id:
+        return HTMLResponse(_callback_html("❌ Invalid state", "Could not verify the request.", success=False))
+
+    ok, user_info, tokens, msg = await auth_module.exchange_code(code, state)
+    if not ok:
+        return HTMLResponse(_callback_html("❌ Auth failed", msg, success=False))
+
+    # Ensure telegram user exists in DB
+    db.get_or_create_telegram_user(int(telegram_user_id))
+
+    saved = db.save_google_tokens(
+        telegram_id   = telegram_user_id,
+        access_token  = tokens["access_token"],
+        refresh_token = tokens.get("refresh_token"),
+        token_expiry  = tokens["token_expiry"],
+        scopes        = tokens["scopes"],
+        google_id     = user_info.get("sub", ""),
+        email         = user_info.get("email", ""),
+        full_name     = user_info.get("name", ""),
+        avatar_url    = user_info.get("picture"),
+    )
+
+    name  = user_info.get("name", "")
+    email = user_info.get("email", "")
+
+    if not saved:
+        # Supabase not configured — still show success if exchange worked
+        logger.warning("Supabase not configured; tokens not persisted.")
+
+    return HTMLResponse(_callback_html(
+        "✅ Connected!",
+        f"Logged in as {name} ({email}).\n\nYou can close this tab and return to Telegram.",
+        success=True,
+    ))
+
+
+def _callback_html(title: str, body: str, success: bool = True) -> str:
+    color = "#2ecc71" if success else "#e74c3c"
+    icon  = "✅" if success else "❌"
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ResumeBot — {title}</title>
+  <style>
+    body {{ font-family: -apple-system, sans-serif; display: flex; justify-content: center;
+            align-items: center; min-height: 100vh; margin: 0; background: #f0f4f8; }}
+    .card {{ background: white; border-radius: 16px; padding: 40px; max-width: 420px;
+             text-align: center; box-shadow: 0 4px 24px rgba(0,0,0,.1); }}
+    .icon {{ font-size: 48px; margin-bottom: 16px; }}
+    h2 {{ color: {color}; margin: 0 0 16px; }}
+    p  {{ color: #555; white-space: pre-line; line-height: 1.6; }}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">{icon}</div>
+    <h2>{title}</h2>
+    <p>{body}</p>
+  </div>
+</body>
+</html>"""
+
+
+@app.get("/auth/session/{telegram_user_id}")
+async def get_session(telegram_user_id: str):
+    """Return Google profile info for a logged-in Telegram user."""
+    user = db.get_telegram_user(telegram_user_id)
+    tokens = db.get_google_tokens(telegram_user_id)
+    if not user or not tokens:
+        return {"logged_in": False}
+    return {
+        "logged_in":  True,
+        "google_id":  user.get("google_id"),
+        "email":      user.get("google_email"),
+        "name":       user.get("google_name"),
+        "avatar_url": user.get("google_avatar"),
+    }
+
+
+@app.delete("/auth/session/{telegram_user_id}")
+async def logout(telegram_user_id: str):
+    """Revoke Google tokens and delete session from DB."""
+    tokens = db.get_google_tokens(telegram_user_id)
+    if tokens:
+        token_to_revoke = tokens.get("refresh_token") or tokens.get("access_token")
+        if token_to_revoke:
+            await auth_module.revoke_token(token_to_revoke)
+        db.delete_google_tokens(telegram_user_id)
+    return {"success": True, "message": "Logged out successfully"}
+
+
+# ── Gmail endpoints ───────────────────────────────────────────────────────────
+
+@app.get("/api/gmail/inbox")
+async def gmail_inbox(
+    telegram_user_id: str = Query(...),
+    max_results: int = Query(5, ge=1, le=20),
+):
+    """Fetch unread Gmail inbox messages for a logged-in Telegram user."""
+    ok, access_token, msg = await auth_module.get_valid_access_token(db, telegram_user_id)
+    if not ok:
+        raise HTTPException(status_code=401, detail=msg)
+
+    success, messages, err = await run_in_threadpool(
+        auth_module.fetch_inbox_sync, access_token, max_results
+    )
+    if not success:
+        raise HTTPException(status_code=500, detail=err)
+
+    return {"success": True, "messages": messages, "count": len(messages)}
+
+
+@app.get("/api/gmail/search")
+async def gmail_search(
+    telegram_user_id: str = Query(...),
+    q: str = Query(...),
+    max_results: int = Query(5, ge=1, le=20),
+):
+    """Search Gmail for a logged-in Telegram user."""
+    ok, access_token, msg = await auth_module.get_valid_access_token(db, telegram_user_id)
+    if not ok:
+        raise HTTPException(status_code=401, detail=msg)
+
+    success, messages, err = await run_in_threadpool(
+        auth_module.search_gmail_sync, access_token, q, max_results
+    )
+    if not success:
+        raise HTTPException(status_code=500, detail=err)
+
+    return {"success": True, "messages": messages, "count": len(messages), "query": q}
 
 
 if __name__ == "__main__":
