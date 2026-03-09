@@ -35,7 +35,6 @@ services:
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - RESUME_API_URL=http://resume-generator:8000
-      - PUBLIC_URL=${PUBLIC_URL}
     restart: always
 
 networks:

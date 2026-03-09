@@ -12,7 +12,6 @@ from app.config import settings
 from app.latex_processor import latex_processor
 from app.document_parser import document_parser
 from app.resume_customizer import resume_customizer
-from app.db import db
 from mcp_server.server import mcp_app
 
 # Configure logging
@@ -110,37 +109,6 @@ async def generate_pdf(request: GeneratePDFRequest):
         logger.error(f"Error generating PDF: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-@app.post("/api/whatsapp/register")
-async def register_whatsapp_user(data: Dict[str, Any]):
-    """Register a new user via WhatsApp phone number"""
-    phone = data.get("phone")
-    name = data.get("name")
-    if not phone:
-        raise HTTPException(status_code=400, detail="Phone number required")
-    
-    user = db.get_or_create_user(phone, name)
-    if not user:
-        raise HTTPException(status_code=500, detail="Failed to create user")
-    
-    return {"success": True, "user": user}
-
-
-@app.post("/api/whatsapp/session")
-async def create_resume_session(data: Dict[str, Any]):
-    """Save a resume session in Supabase"""
-    user_id = data.get("user_id")
-    session_type = data.get("session_type", "generate")
-    raw_input = data.get("raw_input", {})
-    
-    if not user_id:
-        raise HTTPException(status_code=400, detail="user_id required")
-    
-    session = db.create_session(user_id, session_type, raw_input)
-    if not session:
-        raise HTTPException(status_code=500, detail="Failed to create session")
-    
-    return {"success": True, "session": session}
 
 
 @app.get("/api/pdfs")
