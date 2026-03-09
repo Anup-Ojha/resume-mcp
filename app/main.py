@@ -364,6 +364,106 @@ async def customize_resume(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/tailor-smart", response_model=PDFResponse)
+async def tailor_smart(
+    jd_text: str = Form(...),
+    user_id: str = Form(...),
+    resume_file: Optional[UploadFile] = File(None),
+    resume_text: Optional[str] = Form(None),
+    filename: Optional[str] = Form(None),
+):
+    """
+    Smart tailor endpoint.
+
+    Priority order for resume source:
+    1. Saved LaTeX source for user (resume_{user_id}.tex) — best quality
+    2. Uploaded resume_file (PDF / DOCX / image)
+    3. Typed resume_text
+
+    The resume is tailored to the provided job description and returned as a PDF.
+    """
+    if not resume_customizer.is_available():
+        raise HTTPException(
+            status_code=503,
+            detail="AI not available. Please set GEMINI_API_KEY environment variable."
+        )
+
+    clean_user_id = user_id.strip()
+    output_filename = ((filename or f"tailored_{clean_user_id}").strip())
+    if output_filename.endswith(".pdf"):
+        output_filename = output_filename[:-4]
+
+    # Extract JD requirements
+    requirements = document_parser.extract_jd_requirements(jd_text)
+    requirements = resume_customizer.analyze_jd(jd_text, requirements)
+
+    # ── 1. Existing LaTeX source (best quality) ──────────────────────────────
+    existing_latex = latex_processor.get_latex_source(f"resume_{clean_user_id}")
+    if existing_latex:
+        logger.info(f"Using saved LaTeX source for user {clean_user_id}")
+        success, tailored_latex, msg = resume_customizer.customize_resume(
+            existing_latex, requirements
+        )
+        if not success:
+            raise HTTPException(status_code=500, detail=msg)
+
+    # ── 2. Uploaded file ─────────────────────────────────────────────────────
+    elif resume_file:
+        suffix = Path(resume_file.filename or "resume.pdf").suffix
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(await resume_file.read())
+            tmp_path = Path(tmp.name)
+        try:
+            ok, parsed_text, parse_msg = document_parser.parse_file(tmp_path)
+            if not ok:
+                raise HTTPException(status_code=400, detail=f"Could not parse file: {parse_msg}")
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+        logger.info(f"Tailoring from uploaded file for user {clean_user_id}")
+        success, tailored_latex, msg = resume_customizer.create_tailored_resume_from_text(
+            parsed_text, requirements
+        )
+        if not success:
+            raise HTTPException(status_code=500, detail=msg)
+
+    # ── 3. Typed resume text ─────────────────────────────────────────────────
+    elif resume_text:
+        logger.info(f"Tailoring from typed text for user {clean_user_id}")
+        success, tailored_latex, msg = resume_customizer.create_tailored_resume_from_text(
+            resume_text, requirements
+        )
+        if not success:
+            raise HTTPException(status_code=500, detail=msg)
+
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="No resume source found. Provide resume_file or resume_text."
+        )
+
+    # Compile tailored LaTeX to PDF
+    pdf_success, _, pdf_message = latex_processor.compile_latex_to_pdf(
+        tailored_latex, output_filename
+    )
+    if pdf_success:
+        return PDFResponse(
+            success=True,
+            message=pdf_message,
+            filename=f"{output_filename}.pdf"
+        )
+    raise HTTPException(status_code=500, detail=pdf_message)
+
+
+@app.get("/api/resume-exists/{user_id}")
+async def resume_exists(user_id: str):
+    """Check whether a saved resume exists for a Telegram user."""
+    clean = user_id.strip()
+    has_tex = (settings.output_dir / f"resume_{clean}.tex").exists()
+    has_pdf = (settings.output_dir / f"resume_{clean}.pdf").exists()
+    return {"exists": has_tex or has_pdf, "has_latex": has_tex, "has_pdf": has_pdf}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host=settings.host, port=settings.port)

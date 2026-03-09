@@ -194,6 +194,80 @@ Return ONLY the modified LaTeX code, no explanations."""
         
         return "\n".join(formatted)
     
+    def create_tailored_resume_from_text(
+        self,
+        resume_text: str,
+        jd_requirements: Dict,
+    ) -> Tuple[bool, str, str]:
+        """
+        Given a person's resume as plain text (e.g. parsed from PDF/DOCX/typed)
+        and JD requirements, produce a complete tailored LaTeX resume in one AI call.
+
+        Args:
+            resume_text: Plain text content of the existing resume
+            jd_requirements: Extracted + AI-enhanced JD requirements
+
+        Returns:
+            Tuple of (success, latex_code, message)
+        """
+        if not self.is_available():
+            return False, "", "Gemini API key not configured. Set GEMINI_API_KEY or GOOGLE_API_KEY."
+
+        try:
+            jd_context = self._build_jd_context(jd_requirements)
+
+            prompt = f"""You are an expert resume writer and LaTeX developer.
+
+A candidate has provided their resume content and wants it tailored to a specific job.
+
+--- CANDIDATE RESUME ---
+{resume_text}
+--- END RESUME ---
+
+--- JOB REQUIREMENTS ---
+{jd_context}
+--- END JOB REQUIREMENTS ---
+
+Your task:
+1. Read the candidate's actual experience, skills, education and projects.
+2. Rewrite it as a complete, professional LaTeX resume.
+3. Emphasize and reorder content that directly matches the job requirements.
+4. Use \\textbf{{}} to bold technical skills that appear in the JD.
+5. Keep all bullet points truthful — do NOT invent experience or qualifications.
+6. Use this LaTeX structure:
+   - \\documentclass[letterpaper,11pt]{{article}}
+   - Packages: geometry (0.75in margins), enumitem, hyperref (hidelinks), titlesec, parskip
+   - Section format: \\titleformat{{\\section}}{{\\large\\bfseries}}{{}}{{0em}}{{}}[\\titlerule]
+   - \\setlist[itemize]{{noitemsep, topsep=2pt}}
+7. Include: Contact info, Summary, Experience, Education, Skills, Projects (if any).
+8. Return ONLY the complete LaTeX code — no explanations, no markdown fences."""
+
+            response = self.client.models.generate_content(
+                model='gemini-2.0-flash-exp',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.4,
+                    max_output_tokens=4096
+                )
+            )
+
+            latex = response.text.strip()
+
+            # Strip markdown fences if present
+            if latex.startswith("```"):
+                lines = latex.split('\n')
+                if lines[0].startswith("```"):
+                    lines = lines[1:]
+                if lines and lines[-1].strip() == "```":
+                    lines = lines[:-1]
+                latex = '\n'.join(lines)
+
+            return True, latex, "Resume created and tailored to JD successfully"
+
+        except Exception as e:
+            logger.error(f"Error in create_tailored_resume_from_text: {str(e)}")
+            return False, "", f"Error generating resume: {str(e)}"
+
     def highlight_matching_skills(self, latex_code: str, jd_skills: List[str]) -> str:
         """
         Highlight skills in LaTeX that match JD requirements
