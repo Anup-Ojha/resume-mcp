@@ -14,7 +14,7 @@ Pillow>=10.0.0
 pytesseract>=0.3.10
 
 # AI integration
-google-genai>=0.2.0
+google-genai>=1.0.0
 supabase>=2.0.0
 
 # Google OAuth + Gmail
