@@ -605,6 +605,146 @@ async def gmail_inbox(
     return {"success": True, "messages": messages, "count": len(messages)}
 
 
+@app.post("/api/extract-jd-details")
+async def extract_jd_details(
+    jd_file: Optional[UploadFile] = File(None),
+    jd_text: Optional[str] = Form(None),
+):
+    """Extract recipient email, job title, and company name from a JD file or text."""
+    try:
+        extracted_text = ""
+        if jd_file:
+            suffix = Path(jd_file.filename or "jd.pdf").suffix
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(await jd_file.read())
+                tmp_path = Path(tmp.name)
+            try:
+                ok, extracted_text, msg = document_parser.parse_file(tmp_path)
+                if not ok:
+                    raise HTTPException(status_code=400, detail=msg)
+            finally:
+                tmp_path.unlink(missing_ok=True)
+        elif jd_text:
+            extracted_text = jd_text
+        else:
+            raise HTTPException(status_code=400, detail="Either jd_file or jd_text must be provided")
+
+        details = resume_customizer.extract_application_details(extracted_text)
+        return {"success": True, "jd_text": extracted_text, **details}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error extracting JD details: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/apply-smart")
+async def apply_smart(
+    telegram_user_id: str = Form(...),
+    jd_text: str = Form(...),
+    recipient_email: str = Form(...),
+    job_title: str = Form(""),
+    company_name: str = Form(""),
+    resume_file: Optional[UploadFile] = File(None),
+    resume_text: Optional[str] = Form(None),
+):
+    """
+    Tailor resume to JD, compose a cover email, and send via user's Gmail.
+    Requires the user to be authenticated with Google OAuth (/login).
+    """
+    if not resume_customizer.is_available():
+        raise HTTPException(status_code=503, detail="AI not available. Set GEMINI_API_KEY.")
+
+    # Auth
+    ok, access_token, msg = await auth_module.get_valid_access_token(db, telegram_user_id)
+    if not ok:
+        raise HTTPException(status_code=401, detail=msg)
+
+    # Sender name
+    user = db.get_telegram_user(telegram_user_id)
+    sender_name = (user or {}).get("google_name") or (user or {}).get("first_name") or "Applicant"
+
+    # JD requirements
+    requirements = document_parser.extract_jd_requirements(jd_text)
+    requirements = resume_customizer.analyze_jd(jd_text, requirements)
+
+    # Tailored LaTeX
+    clean_uid = telegram_user_id.strip()
+    output_filename = f"apply_{clean_uid}"
+    existing_latex = latex_processor.get_latex_source(f"resume_{clean_uid}")
+
+    if existing_latex:
+        success, tailored_latex, msg2 = resume_customizer.customize_resume(existing_latex, requirements)
+    elif resume_file:
+        suffix = Path(resume_file.filename or "resume.pdf").suffix
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(await resume_file.read())
+            tmp_path = Path(tmp.name)
+        try:
+            ok2, parsed_text, parse_msg = document_parser.parse_file(tmp_path)
+            if not ok2:
+                raise HTTPException(status_code=400, detail=f"Could not parse file: {parse_msg}")
+        finally:
+            tmp_path.unlink(missing_ok=True)
+        success, tailored_latex, msg2 = resume_customizer.create_tailored_resume_from_text(
+            parsed_text, requirements
+        )
+    elif resume_text:
+        success, tailored_latex, msg2 = resume_customizer.create_tailored_resume_from_text(
+            resume_text, requirements
+        )
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="No resume source. Provide resume_file or resume_text."
+        )
+
+    if not success:
+        raise HTTPException(status_code=500, detail=msg2)
+
+    # Compile PDF
+    pdf_success, _, pdf_msg = latex_processor.compile_latex_to_pdf(tailored_latex, output_filename)
+    if not pdf_success:
+        raise HTTPException(status_code=500, detail=pdf_msg)
+
+    # Compose email
+    _, email_subject, email_body, _ = resume_customizer.compose_application_email(
+        sender_name=sender_name,
+        job_title=job_title,
+        company_name=company_name,
+        jd_summary=jd_text[:500],
+    )
+
+    # Read PDF bytes
+    pdf_path = latex_processor.get_pdf_path(f"{output_filename}.pdf")
+    if not pdf_path:
+        raise HTTPException(status_code=500, detail="PDF file not found after compilation")
+    with open(pdf_path, "rb") as f:
+        attachment_bytes = f.read()
+
+    email_filename = f"{sender_name.replace(' ', '_')}_Resume.pdf"
+    sent_ok, result_id = await run_in_threadpool(
+        auth_module.send_email_with_attachment_sync,
+        access_token,
+        recipient_email,
+        email_subject,
+        email_body,
+        attachment_bytes,
+        email_filename,
+    )
+
+    if not sent_ok:
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {result_id}")
+
+    return {
+        "success": True,
+        "message": f"Email sent to {recipient_email}",
+        "email_subject": email_subject,
+        "resume_filename": f"{output_filename}.pdf",
+        "message_id": result_id,
+    }
+
+
 @app.get("/api/gmail/search")
 async def gmail_search(
     telegram_user_id: str = Query(...),

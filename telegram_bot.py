@@ -34,6 +34,13 @@ TAILOR_WAITING_INPUT    = 2   # Step 2: no existing resume — wait for button c
                                #         also handles direct file drops
 TAILOR_COLLECTING_TEXT  = 3   # Step 3: user chose "Type details"
 
+# /apply flow
+APPLY_COLLECTING_JD  = 4   # Step 1: collect JD (text / file / image)
+APPLY_GETTING_EMAIL  = 5   # Step 2: confirm or provide recipient email
+APPLY_WAITING_RESUME = 6   # Step 3: no saved resume — wait for Upload/Type button
+APPLY_COLLECTING_TEXT = 7  # Step 4: user chose "Type resume details"
+APPLY_CONFIRMING     = 8   # Step 5: confirm before sending
+
 
 # ── API helpers ───────────────────────────────────────────────────────────────
 
@@ -128,6 +135,47 @@ def fetch_pdf_bytes(filename: str):
         return None, str(e)
 
 
+def extract_jd_details(
+    jd_file_bytes: bytes = None,
+    jd_file_name: str = None,
+    jd_text: str = None,
+) -> dict:
+    """Call /api/extract-jd-details. Returns recipient_email, job_title, company_name."""
+    data = {}
+    files = None
+    if jd_file_bytes:
+        files = {"jd_file": (jd_file_name or "jd.pdf", jd_file_bytes)}
+    elif jd_text:
+        data["jd_text"] = jd_text
+    return _post("/api/extract-jd-details", data=data, files=files, timeout=60)
+
+
+def apply_smart_send(
+    telegram_user_id: str,
+    jd_text: str,
+    recipient_email: str,
+    job_title: str = "",
+    company_name: str = "",
+    resume_file_bytes: bytes = None,
+    resume_file_name: str = None,
+    resume_text: str = None,
+) -> dict:
+    """Call /api/apply-smart — tailor resume, compose email, send via Gmail."""
+    data = {
+        "telegram_user_id": telegram_user_id,
+        "jd_text": jd_text,
+        "recipient_email": recipient_email,
+        "job_title": job_title,
+        "company_name": company_name,
+    }
+    files = None
+    if resume_file_bytes:
+        files = {"resume_file": (resume_file_name or "resume.pdf", resume_file_bytes)}
+    elif resume_text:
+        data["resume_text"] = resume_text
+    return _post("/api/apply-smart", data=data, files=files, timeout=240)
+
+
 def check_api_health() -> dict:
     return _get("/api/health", timeout=10)
 
@@ -210,6 +258,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("📄 Create Resume",        callback_data="create")],
         [InlineKeyboardButton("🎯 Tailor Resume to JD",  callback_data="tailor")],
+        [InlineKeyboardButton("📧 Apply via Email",       callback_data="apply")],
         [InlineKeyboardButton("📋 List My PDFs",         callback_data="list")],
         [InlineKeyboardButton("🔐 Connect Gmail",        callback_data="login")],
         [InlineKeyboardButton("🔍 API Status",           callback_data="status")],
@@ -243,12 +292,20 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/status \\- Check API health\n"
         "/cancel \\- Cancel current operation\n"
         "/help \\- Show this message\n\n"
+        "*Apply via Email:*\n"
+        "/apply \\- Tailor resume \\+ send application email\n\n"
         "*Tailor flow:*\n"
         "1\\. Send /tailor\n"
         "2\\. Paste the job description\n"
         "3\\. Bot uses your existing resume \\(if any\\) automatically,\n"
         "   or asks you to upload a file / type your details\n"
-        "4\\. Receive a tailored PDF directly in chat",
+        "4\\. Receive a tailored PDF directly in chat\n\n"
+        "*Apply flow:*\n"
+        "1\\. Send /apply\n"
+        "2\\. Send the JD \\(text, image, PDF, DOCX\\)\n"
+        "3\\. Confirm the HR email \\(or type it if not found\\)\n"
+        "4\\. Provide resume if needed\n"
+        "5\\. Confirm — bot tailors resume, writes cover email, sends via Gmail",
         parse_mode="MarkdownV2"
     )
 
@@ -708,6 +765,313 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
+# ── /apply flow ───────────────────────────────────────────────────────────────
+
+async def apply_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Entry point: check Gmail login, then ask for JD."""
+    user_id = str(update.effective_user.id)
+    context.user_data.clear()
+    context.user_data["apply_user_id"] = user_id
+
+    session = get_session_info(user_id)
+    if not session.get("logged_in"):
+        await update.message.reply_text(
+            "📧 *Apply via Email* requires your Gmail account.\n\n"
+            "You're not connected to Google yet.\n"
+            "Use /login to connect first, then try /apply again.",
+            parse_mode="Markdown"
+        )
+        return ConversationHandler.END
+
+    await update.message.reply_text(
+        "📧 *Apply via Email*\n\n"
+        "Send me the job description — I'll:\n"
+        "1. Extract the HR/recruiter email\n"
+        "2. Tailor your resume to the role\n"
+        "3. Write a professional cover email\n"
+        "4. Send it via your Gmail\n\n"
+        "Send the JD as *text*, *image*, *PDF* or *DOCX*.\n"
+        "Send /cancel to abort.",
+        parse_mode="Markdown"
+    )
+    return APPLY_COLLECTING_JD
+
+
+async def apply_got_jd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Received JD. Extract details and branch on email found vs. not found."""
+    jd_file_bytes = None
+    jd_file_name = None
+    jd_text_raw = None
+
+    if update.message.text:
+        jd_text_raw = update.message.text
+        await update.message.reply_text("🔍 Extracting job details…")
+    elif update.message.document:
+        tg_file = update.message.document
+        jd_file_name = tg_file.file_name or "jd.pdf"
+        await update.message.reply_text("📥 Got your file! Extracting details…")
+        try:
+            file_obj = await context.bot.get_file(tg_file.file_id)
+            jd_file_bytes = bytes(await file_obj.download_as_bytearray())
+        except Exception as e:
+            await update.message.reply_text(f"❌ Failed to download file: {e}")
+            return ConversationHandler.END
+    elif update.message.photo:
+        tg_file = update.message.photo[-1]
+        jd_file_name = "jd_image.jpg"
+        await update.message.reply_text("📥 Got your image! Extracting details…")
+        try:
+            file_obj = await context.bot.get_file(tg_file.file_id)
+            jd_file_bytes = bytes(await file_obj.download_as_bytearray())
+        except Exception as e:
+            await update.message.reply_text(f"❌ Failed to download image: {e}")
+            return ConversationHandler.END
+    else:
+        await update.message.reply_text("Please send the JD as text, a document, or an image.")
+        return APPLY_COLLECTING_JD
+
+    result = extract_jd_details(
+        jd_file_bytes=jd_file_bytes,
+        jd_file_name=jd_file_name,
+        jd_text=jd_text_raw,
+    )
+
+    if not result.get("success"):
+        await update.message.reply_text(
+            f"❌ Failed to extract JD details: {result.get('message', 'Unknown error')}"
+        )
+        return ConversationHandler.END
+
+    context.user_data["jd_text"] = result.get("jd_text", jd_text_raw or "")
+    context.user_data["job_title"] = result.get("job_title", "")
+    context.user_data["company_name"] = result.get("company_name", "")
+    context.user_data["recipient_email"] = result.get("recipient_email")
+
+    job_title = context.user_data["job_title"]
+    company   = context.user_data["company_name"]
+    email     = context.user_data["recipient_email"]
+
+    summary = ""
+    if job_title: summary += f"📌 *Position:* {job_title}\n"
+    if company:   summary += f"🏢 *Company:* {company}\n"
+
+    if email:
+        keyboard = [[
+            InlineKeyboardButton("✅ Use this email",  callback_data="apply_email_ok"),
+            InlineKeyboardButton("✏️ Change email",   callback_data="apply_email_change"),
+        ]]
+        await update.message.reply_text(
+            f"✅ *Details extracted:*\n{summary}"
+            f"📧 *Recipient:* `{email}`\n\n"
+            "Is this the correct email?",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return APPLY_GETTING_EMAIL
+    else:
+        msg = f"ℹ️ *Details extracted:*\n{summary}\n" if summary else ""
+        await update.message.reply_text(
+            msg + "📧 No recipient email found in the JD.\n\nPlease type the HR/recruiter email address:",
+            parse_mode="Markdown"
+        )
+        return APPLY_GETTING_EMAIL
+
+
+async def apply_email_confirmed(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle the email confirmation inline buttons."""
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == "apply_email_ok":
+        return await _check_resume_for_apply(query.message, context)
+    else:  # apply_email_change
+        await query.message.reply_text("Please type the correct email address:")
+        return APPLY_GETTING_EMAIL
+
+
+async def apply_got_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle email typed by user."""
+    import re
+    email_text = update.message.text.strip()
+    if not re.match(r"[^@]+@[^@]+\.[^@]+", email_text):
+        await update.message.reply_text(
+            "That doesn't look like a valid email address. Please try again:"
+        )
+        return APPLY_GETTING_EMAIL
+    context.user_data["recipient_email"] = email_text
+    return await _check_resume_for_apply(update.message, context)
+
+
+async def _check_resume_for_apply(msg_obj, context: ContextTypes.DEFAULT_TYPE):
+    """Check for existing resume, branch to confirmation or resume-collection."""
+    user_id = context.user_data.get("apply_user_id", "")
+    if resume_exists_for_user(user_id):
+        return await _show_apply_confirmation(msg_obj, context)
+    else:
+        keyboard = [[
+            InlineKeyboardButton("📎 Upload Resume", callback_data="apply_upload"),
+            InlineKeyboardButton("✏️ Type Details",  callback_data="apply_type"),
+        ]]
+        await msg_obj.reply_text(
+            "📭 No saved resume found.\n\nHow would you like to provide your resume?",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return APPLY_WAITING_RESUME
+
+
+async def apply_resume_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle Upload/Type button press in apply flow."""
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == "apply_upload":
+        await query.message.reply_text(
+            "📎 Please upload your resume file.\n"
+            "Supported: *PDF, DOCX, JPG, PNG*\n\nSend /cancel to abort.",
+            parse_mode="Markdown"
+        )
+        return APPLY_WAITING_RESUME
+    else:  # apply_type
+        await query.message.reply_text(
+            "✏️ *Type your resume details:*\n\n"
+            "```\n"
+            "Name: John Doe\n"
+            "Email: john@email.com\n"
+            "Phone: +91 9999999999\n\n"
+            "Experience:\n"
+            "- Software Engineer at Company (2023-Present)\n"
+            "  * Built REST APIs with FastAPI\n\n"
+            "Education:\n"
+            "- B.Tech CS, XYZ University, 2023\n\n"
+            "Skills: Python, FastAPI, Docker, AWS\n"
+            "```\n\n"
+            "Send /cancel to abort.",
+            parse_mode="Markdown"
+        )
+        return APPLY_COLLECTING_TEXT
+
+
+async def apply_got_resume_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """User uploaded a resume file in apply flow."""
+    if update.message.document:
+        tg_file = update.message.document
+        file_name = tg_file.file_name or "resume.pdf"
+    elif update.message.photo:
+        tg_file = update.message.photo[-1]
+        file_name = "resume_photo.jpg"
+    else:
+        await update.message.reply_text("Please send a PDF, DOCX, or image file.")
+        return APPLY_WAITING_RESUME
+
+    try:
+        file_obj = await context.bot.get_file(tg_file.file_id)
+        file_bytes = bytes(await file_obj.download_as_bytearray())
+    except Exception as e:
+        await update.message.reply_text(f"❌ Failed to download file: {e}")
+        return ConversationHandler.END
+
+    context.user_data["resume_file_bytes"] = file_bytes
+    context.user_data["resume_file_name"] = file_name
+    return await _show_apply_confirmation(update.message, context)
+
+
+async def apply_got_resume_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """User typed resume details in apply flow."""
+    context.user_data["resume_text"] = update.message.text
+    return await _show_apply_confirmation(update.message, context)
+
+
+async def _show_apply_confirmation(msg_obj, context: ContextTypes.DEFAULT_TYPE):
+    """Show confirmation card before sending application."""
+    email     = context.user_data.get("recipient_email", "")
+    job_title = context.user_data.get("job_title", "")
+    company   = context.user_data.get("company_name", "")
+
+    lines = ["📨 *Ready to send your application!*\n"]
+    lines.append(f"📧 *To:* `{email}`")
+    if job_title: lines.append(f"📌 *Position:* {job_title}")
+    if company:   lines.append(f"🏢 *Company:* {company}")
+    lines.append("\nI will:")
+    lines.append("1\\. Tailor your resume to the job")
+    lines.append("2\\. Write a professional cover email")
+    lines.append("3\\. Send it via your Gmail\n")
+    lines.append("Shall I proceed?")
+
+    keyboard = [[
+        InlineKeyboardButton("✅ Yes, Send!", callback_data="apply_confirm_yes"),
+        InlineKeyboardButton("❌ Cancel",     callback_data="apply_confirm_no"),
+    ]]
+    await msg_obj.reply_text(
+        "\n".join(lines),
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    return APPLY_CONFIRMING
+
+
+async def apply_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle Yes/Cancel at the final confirmation step."""
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == "apply_confirm_no":
+        context.user_data.clear()
+        await query.message.reply_text(
+            "Cancelled. Use /apply to start again or /help for all commands."
+        )
+        return ConversationHandler.END
+
+    # apply_confirm_yes
+    user_id          = context.user_data.get("apply_user_id", str(query.from_user.id))
+    jd_text          = context.user_data.get("jd_text", "")
+    recipient_email  = context.user_data.get("recipient_email", "")
+    job_title        = context.user_data.get("job_title", "")
+    company_name     = context.user_data.get("company_name", "")
+    resume_file_bytes = context.user_data.get("resume_file_bytes")
+    resume_file_name  = context.user_data.get("resume_file_name")
+    resume_text      = context.user_data.get("resume_text")
+
+    await query.message.reply_text(
+        "⚙️ Tailoring your resume and sending the application email…\n"
+        "This may take up to 2 minutes."
+    )
+
+    result = apply_smart_send(
+        telegram_user_id=user_id,
+        jd_text=jd_text,
+        recipient_email=recipient_email,
+        job_title=job_title,
+        company_name=company_name,
+        resume_file_bytes=resume_file_bytes,
+        resume_file_name=resume_file_name,
+        resume_text=resume_text,
+    )
+
+    if result.get("success"):
+        subject = result.get("email_subject", "")
+        await query.message.reply_text(
+            f"✅ *Application sent!*\n\n"
+            f"📧 Sent to: `{recipient_email}`\n"
+            f"📌 Subject: _{subject}_\n\n"
+            "Your tailored resume was attached. Good luck! 🍀",
+            parse_mode="Markdown"
+        )
+    else:
+        err = result.get("message", result.get("detail", "Unknown error"))
+        if "Not logged in" in err or "401" in str(err):
+            await query.message.reply_text(
+                "❌ Gmail session expired.\nUse /login to reconnect, then try /apply again."
+            )
+        else:
+            await query.message.reply_text(
+                f"❌ Failed to send application:\n{err}\n\n"
+                "Check /status for API health."
+            )
+
+    context.user_data.clear()
+    return ConversationHandler.END
+
+
 # ── /cancel ───────────────────────────────────────────────────────────────────
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -758,6 +1122,11 @@ async def handle_inline_buttons(update: Update, context: ContextTypes.DEFAULT_TY
             await query.message.reply_text(
                 "❌ Could not generate login URL. Ensure GOOGLE_CLIENT_ID is configured."
             )
+    elif query.data == "apply":
+        await query.message.reply_text(
+            "Send /apply to start the guided email-application flow!\n\n"
+            "Make sure you've connected your Gmail first with /login."
+        )
     elif query.data == "status":
         health = check_api_health()
         api_status = health.get("status", "unknown")
@@ -827,6 +1196,39 @@ def main():
         allow_reentry=True,
     )
 
+    # ── /apply conversation ───────────────────────────────────────────────────
+    apply_conv = ConversationHandler(
+        entry_points=[CommandHandler("apply", apply_command)],
+        states={
+            APPLY_COLLECTING_JD: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, apply_got_jd),
+                MessageHandler(
+                    (filters.Document.ALL | filters.PHOTO) & ~filters.COMMAND,
+                    apply_got_jd
+                ),
+            ],
+            APPLY_GETTING_EMAIL: [
+                CallbackQueryHandler(apply_email_confirmed, pattern="^apply_email_(ok|change)$"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, apply_got_email),
+            ],
+            APPLY_WAITING_RESUME: [
+                CallbackQueryHandler(apply_resume_choice, pattern="^apply_(upload|type)$"),
+                MessageHandler(
+                    (filters.Document.ALL | filters.PHOTO) & ~filters.COMMAND,
+                    apply_got_resume_file
+                ),
+            ],
+            APPLY_COLLECTING_TEXT: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, apply_got_resume_text),
+            ],
+            APPLY_CONFIRMING: [
+                CallbackQueryHandler(apply_confirm, pattern="^apply_confirm_(yes|no)$"),
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+        allow_reentry=True,
+    )
+
     application.add_handler(CommandHandler("start",   start))
     application.add_handler(CommandHandler("help",    help_command))
     application.add_handler(CommandHandler("status",  status_command))
@@ -839,6 +1241,7 @@ def main():
     application.add_handler(CommandHandler("search",  search_command))
     application.add_handler(create_conv)
     application.add_handler(tailor_conv)
+    application.add_handler(apply_conv)
     # Main-menu inline buttons (outside conversations)
     application.add_handler(CallbackQueryHandler(handle_inline_buttons))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))

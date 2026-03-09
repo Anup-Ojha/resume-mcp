@@ -268,6 +268,110 @@ Your task:
             logger.error(f"Error in create_tailored_resume_from_text: {str(e)}")
             return False, "", f"Error generating resume: {str(e)}"
 
+    def extract_application_details(self, jd_text: str) -> Dict:
+        """
+        Extract recipient email, job title, company name and key requirements from JD text.
+        Uses regex for emails (reliable), Gemini for structured extraction.
+        Returns dict: {recipient_email, job_title, company_name, key_requirements}
+        """
+        import re
+        raw_emails = re.findall(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}", jd_text)
+        emails = [e for e in raw_emails if not any(
+            x in e.lower() for x in ["example.", "noreply", "no-reply", "domain.", "email.com"]
+        )]
+        result: Dict = {
+            "recipient_email": emails[0] if emails else None,
+            "job_title": "",
+            "company_name": "",
+            "key_requirements": [],
+        }
+        if not self.is_available():
+            return result
+        try:
+            import json
+            prompt = f"""Extract information from this job description:
+1. recipient_email: email to send the application to (HR/recruiter). Return null if not found.
+2. job_title: the job title/position.
+3. company_name: the company name.
+4. key_requirements: top 5 key requirements or skills (list of strings).
+
+Job Description:
+{jd_text[:3000]}
+
+Respond ONLY in JSON with keys: recipient_email, job_title, company_name, key_requirements"""
+            response = self.client.models.generate_content(
+                model='gemini-2.0-flash-exp',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.2,
+                    response_mime_type="application/json"
+                )
+            )
+            data = json.loads(response.text)
+            if not result["recipient_email"] and data.get("recipient_email"):
+                result["recipient_email"] = data["recipient_email"]
+            result["job_title"] = data.get("job_title", "")
+            result["company_name"] = data.get("company_name", "")
+            result["key_requirements"] = data.get("key_requirements", [])
+        except Exception as e:
+            logger.error(f"Error extracting application details: {e}")
+        return result
+
+    def compose_application_email(
+        self,
+        sender_name: str,
+        job_title: str,
+        company_name: str,
+        jd_summary: str,
+    ) -> Tuple[bool, str, str, str]:
+        """
+        Compose a professional job application email using Gemini.
+        Returns (success, subject, body, message).
+        Falls back to a template if AI is unavailable or fails.
+        """
+        fallback_subject = f"Application for {job_title} position" if job_title else "Job Application"
+        fallback_body = (
+            f"Dear Hiring Manager,\n\n"
+            f"I am writing to express my interest in the "
+            f"{job_title or 'open position'}"
+            f"{' at ' + company_name if company_name else ''}.\n\n"
+            "Please find my resume attached for your consideration.\n\n"
+            "I look forward to hearing from you.\n\n"
+            f"Best regards,\n{sender_name}"
+        )
+        if not self.is_available():
+            return True, fallback_subject, fallback_body, "Fallback template used (AI unavailable)"
+        try:
+            import json
+            prompt = f"""Write a concise professional job application email.
+
+Applicant: {sender_name}
+Position: {job_title or 'the position'}
+Company: {company_name or 'the company'}
+Job summary: {jd_summary[:400] if jd_summary else 'N/A'}
+
+Rules:
+- Under 200 words
+- Professional, warm tone
+- Mention resume is attached
+- Do NOT invent specific achievements or numbers
+- Sign off with applicant name
+
+Respond ONLY in JSON with keys: subject, body"""
+            response = self.client.models.generate_content(
+                model='gemini-2.0-flash-exp',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.5,
+                    response_mime_type="application/json"
+                )
+            )
+            data = json.loads(response.text)
+            return True, data.get("subject", fallback_subject), data.get("body", fallback_body), "OK"
+        except Exception as e:
+            logger.error(f"Error composing application email: {e}")
+            return True, fallback_subject, fallback_body, "Fallback template used"
+
     def highlight_matching_skills(self, latex_code: str, jd_skills: List[str]) -> str:
         """
         Highlight skills in LaTeX that match JD requirements
