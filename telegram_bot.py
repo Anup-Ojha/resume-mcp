@@ -87,6 +87,36 @@ def list_pdfs() -> dict:
     return _get("/api/pdfs", timeout=10)
 
 
+# ── Google / Gmail API helpers ─────────────────────────────────────────────────
+
+def get_auth_url(user_id: str) -> str:
+    """Fetch a Google OAuth URL from the API. Returns URL string or empty string on error."""
+    result = _get(f"/auth/url?telegram_user_id={user_id}", timeout=10)
+    return result.get("url", "")
+
+
+def get_session_info(user_id: str) -> dict:
+    return _get(f"/auth/session/{user_id}", timeout=10)
+
+
+def logout_user(user_id: str) -> dict:
+    try:
+        resp = requests.delete(f"{RESUME_API_URL}/auth/session/{user_id}", timeout=10)
+        return resp.json()
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+
+def get_gmail_inbox(user_id: str, max_results: int = 5) -> dict:
+    return _get(f"/api/gmail/inbox?telegram_user_id={user_id}&max_results={max_results}", timeout=30)
+
+
+def search_gmail_messages(user_id: str, query: str, max_results: int = 5) -> dict:
+    import urllib.parse
+    q = urllib.parse.quote(query)
+    return _get(f"/api/gmail/search?telegram_user_id={user_id}&q={q}&max_results={max_results}", timeout=30)
+
+
 def fetch_pdf_bytes(filename: str):
     """Fetch a PDF as bytes from the internal API. Returns (bytes, error_msg)."""
     try:
@@ -181,6 +211,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("📄 Create Resume",        callback_data="create")],
         [InlineKeyboardButton("🎯 Tailor Resume to JD",  callback_data="tailor")],
         [InlineKeyboardButton("📋 List My PDFs",         callback_data="list")],
+        [InlineKeyboardButton("🔐 Connect Gmail",        callback_data="login")],
         [InlineKeyboardButton("🔍 API Status",           callback_data="status")],
     ]
     await update.message.reply_text(
@@ -197,10 +228,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "*ResumeBot Commands:*\n\n"
+        "*Resume:*\n"
         "/start \\- Show main menu\n"
         "/create \\- Create a new resume PDF\n"
         "/tailor \\- Tailor resume to a job description\n"
-        "/list \\- List generated PDFs\n"
+        "/list \\- List generated PDFs\n\n"
+        "*Gmail:*\n"
+        "/login \\- Connect your Google account\n"
+        "/whoami \\- Show connected Google account\n"
+        "/inbox \\- Show last 5 unread Gmail messages\n"
+        "/search \\<query\\> \\- Search your Gmail\n"
+        "/logout \\- Disconnect Google account\n\n"
+        "*Other:*\n"
         "/status \\- Check API health\n"
         "/cancel \\- Cancel current operation\n"
         "/help \\- Show this message\n\n"
@@ -537,6 +576,138 @@ async def tailor_got_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
+# ── Google / Gmail commands ───────────────────────────────────────────────────
+
+async def login_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Generate and send the Google OAuth URL."""
+    user_id = str(update.effective_user.id)
+    await update.message.reply_text("🔐 Generating your Google login link…")
+    url = get_auth_url(user_id)
+    if not url:
+        await update.message.reply_text(
+            "❌ Could not generate login URL.\n"
+            "Make sure GOOGLE_CLIENT_ID is configured and the API is running."
+        )
+        return
+    await update.message.reply_text(
+        f"Click the link below to connect your Google account:\n\n{url}\n\n"
+        "After authorising, you can use /inbox and /search to read your Gmail."
+    )
+
+
+async def logout_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Revoke Google tokens and log out."""
+    user_id = str(update.effective_user.id)
+    await update.message.reply_text("🔓 Logging out…")
+    result = logout_user(user_id)
+    if result.get("success"):
+        await update.message.reply_text(
+            "✅ Disconnected your Google account.\nUse /login to reconnect."
+        )
+    else:
+        await update.message.reply_text(
+            f"⚠️ {result.get('message', 'Logout failed')}"
+        )
+
+
+async def whoami_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show the connected Google account."""
+    user_id = str(update.effective_user.id)
+    info = get_session_info(user_id)
+    if not info.get("logged_in"):
+        await update.message.reply_text(
+            "You are not connected to Google yet.\nUse /login to connect your account."
+        )
+        return
+    name  = info.get("name", "")
+    email = info.get("email", "")
+    await update.message.reply_text(
+        f"🔐 *Connected Google Account*\n\n"
+        f"👤 Name: {name}\n"
+        f"📧 Email: {email}\n\n"
+        "Use /inbox to read your Gmail or /logout to disconnect.",
+        parse_mode="Markdown"
+    )
+
+
+async def inbox_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Fetch and display the last 5 unread Gmail messages."""
+    user_id = str(update.effective_user.id)
+    await update.message.reply_text("📬 Fetching your unread emails…")
+    result = get_gmail_inbox(user_id, max_results=5)
+
+    if not result.get("success"):
+        err = result.get("message", result.get("detail", "Unknown error"))
+        if "Not logged in" in err or "401" in str(result.get("status_code", "")):
+            await update.message.reply_text(
+                "❌ Not connected to Google.\nUse /login to connect your account."
+            )
+        else:
+            await update.message.reply_text(f"❌ {err}")
+        return
+
+    messages = result.get("messages", [])
+    if not messages:
+        await update.message.reply_text("📭 No unread messages in your inbox.")
+        return
+
+    lines = [f"📬 *Unread Inbox* ({len(messages)} messages)\n"]
+    for i, msg in enumerate(messages, 1):
+        subject = msg.get("subject", "(no subject)")
+        sender  = msg.get("from", "")
+        snippet = msg.get("snippet", "")[:80]
+        lines.append(
+            f"*{i}. {subject}*\n"
+            f"From: {sender}\n"
+            f"_{snippet}…_\n"
+        )
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
+async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Search Gmail: /search <query>"""
+    user_id = str(update.effective_user.id)
+    query = " ".join(context.args) if context.args else ""
+    if not query:
+        await update.message.reply_text(
+            "Usage: /search <query>\n\nExamples:\n"
+            "• /search from:boss@company.com\n"
+            "• /search subject:invoice\n"
+            "• /search job offer"
+        )
+        return
+
+    await update.message.reply_text(f"🔍 Searching Gmail for: _{query}_…", parse_mode="Markdown")
+    result = search_gmail_messages(user_id, query, max_results=5)
+
+    if not result.get("success"):
+        err = result.get("message", result.get("detail", "Unknown error"))
+        if "Not logged in" in err:
+            await update.message.reply_text(
+                "❌ Not connected to Google.\nUse /login to connect your account."
+            )
+        else:
+            await update.message.reply_text(f"❌ {err}")
+        return
+
+    messages = result.get("messages", [])
+    if not messages:
+        await update.message.reply_text(f"📭 No messages found for: _{query}_", parse_mode="Markdown")
+        return
+
+    lines = [f"🔍 *Search results for* _{query}_ ({len(messages)} found)\n"]
+    for i, msg in enumerate(messages, 1):
+        subject = msg.get("subject", "(no subject)")
+        sender  = msg.get("from", "")
+        snippet = msg.get("snippet", "")[:80]
+        lines.append(
+            f"*{i}. {subject}*\n"
+            f"From: {sender}\n"
+            f"_{snippet}…_\n"
+        )
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
 # ── /cancel ───────────────────────────────────────────────────────────────────
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -576,6 +747,17 @@ async def handle_inline_buttons(update: Update, context: ContextTypes.DEFAULT_TY
             for pdf in pdfs:
                 lines.append(f"• {pdf['filename']} ({pdf['size'] / 1024:.1f} KB)")
             await query.message.reply_text("\n".join(lines))
+    elif query.data == "login":
+        uid = str(query.from_user.id)
+        url = get_auth_url(uid)
+        if url:
+            await query.message.reply_text(
+                f"🔐 Click to connect your Google / Gmail account:\n\n{url}"
+            )
+        else:
+            await query.message.reply_text(
+                "❌ Could not generate login URL. Ensure GOOGLE_CLIENT_ID is configured."
+            )
     elif query.data == "status":
         health = check_api_health()
         api_status = health.get("status", "unknown")
@@ -645,10 +827,16 @@ def main():
         allow_reentry=True,
     )
 
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("status", status_command))
-    application.add_handler(CommandHandler("list", list_command))
+    application.add_handler(CommandHandler("start",   start))
+    application.add_handler(CommandHandler("help",    help_command))
+    application.add_handler(CommandHandler("status",  status_command))
+    application.add_handler(CommandHandler("list",    list_command))
+    # Google / Gmail
+    application.add_handler(CommandHandler("login",   login_command))
+    application.add_handler(CommandHandler("logout",  logout_command))
+    application.add_handler(CommandHandler("whoami",  whoami_command))
+    application.add_handler(CommandHandler("inbox",   inbox_command))
+    application.add_handler(CommandHandler("search",  search_command))
     application.add_handler(create_conv)
     application.add_handler(tailor_conv)
     # Main-menu inline buttons (outside conversations)
