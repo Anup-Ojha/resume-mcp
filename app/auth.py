@@ -30,6 +30,7 @@ GMAIL_SCOPES = [
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/userinfo.profile",
     "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/gmail.send",
 ]
 
 
@@ -259,6 +260,52 @@ def fetch_inbox_sync(
     except Exception as e:
         logger.error(f"Gmail inbox error: {e}")
         return False, [], str(e)
+
+
+def send_email_with_attachment_sync(
+    access_token: str,
+    to: str,
+    subject: str,
+    body_text: str,
+    attachment_bytes: bytes,
+    attachment_filename: str,
+) -> Tuple[bool, str]:
+    """
+    Send an email with a PDF attachment via Gmail API (synchronous).
+    Returns (success, message_id_or_error).
+    """
+    import email.mime.multipart
+    import email.mime.text
+    import email.mime.base
+    import email.encoders
+    import base64 as b64
+
+    try:
+        msg = email.mime.multipart.MIMEMultipart()
+        msg["to"]      = to
+        msg["subject"] = subject
+        msg.attach(email.mime.text.MIMEText(body_text, "plain"))
+
+        part = email.mime.base.MIMEBase("application", "pdf")
+        part.set_payload(attachment_bytes)
+        email.encoders.encode_base64(part)
+        part.add_header(
+            "Content-Disposition",
+            f'attachment; filename="{attachment_filename}"',
+        )
+        msg.attach(part)
+
+        raw = b64.urlsafe_b64encode(msg.as_bytes()).decode()
+
+        svc    = _gmail_service(access_token)
+        result = svc.users().messages().send(
+            userId="me", body={"raw": raw}
+        ).execute()
+
+        return True, result.get("id", "sent")
+    except Exception as e:
+        logger.error(f"Gmail send error: {e}")
+        return False, str(e)
 
 
 def search_gmail_sync(
