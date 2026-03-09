@@ -5,13 +5,13 @@ Directly calls the FastAPI resume generator service.
 """
 
 import os
-import json
 import logging
 import requests
+from io import BytesIO
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
-    filters, ContextTypes, ConversationHandler
+    filters, ContextTypes, ConversationHandler, CallbackQueryHandler
 )
 
 logging.basicConfig(
@@ -23,12 +23,12 @@ logger = logging.getLogger(__name__)
 # Config
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 RESUME_API_URL = os.environ.get("RESUME_API_URL", "http://resume-generator:8000")
-PUBLIC_URL = os.environ.get("PUBLIC_URL", "http://localhost:8000")
 
 # Conversation states
 COLLECTING_DETAILS, COLLECTING_JD = range(2)
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def generate_pdf(latex_code: str, filename: str = "resume") -> dict:
     """Call the FastAPI /api/generate endpoint."""
@@ -56,19 +56,6 @@ def customize_resume(jd_text: str, filename: str = "customized_resume") -> dict:
         return {"success": False, "message": str(e)}
 
 
-def parse_jd(jd_text: str) -> dict:
-    """Call the FastAPI /api/parse-jd endpoint."""
-    try:
-        resp = requests.post(
-            f"{RESUME_API_URL}/api/parse-jd",
-            data={"jd_text": jd_text},
-            timeout=30
-        )
-        return resp.json()
-    except Exception as e:
-        return {"success": False, "message": str(e)}
-
-
 def list_pdfs() -> dict:
     """Call the FastAPI /api/pdfs endpoint."""
     try:
@@ -78,12 +65,50 @@ def list_pdfs() -> dict:
         return {"success": False, "pdfs": [], "message": str(e)}
 
 
-def build_latex_from_details(details: str) -> str:
+def fetch_pdf_bytes(filename: str):
+    """Fetch a PDF as bytes from the internal API. Returns (bytes, error_msg)."""
+    try:
+        url = f"{RESUME_API_URL}/api/pdfs/{filename}"
+        resp = requests.get(url, timeout=60)
+        if resp.status_code == 200:
+            return resp.content, None
+        return None, f"Server returned HTTP {resp.status_code}"
+    except Exception as e:
+        return None, str(e)
+
+
+def check_api_health() -> dict:
+    """Call the FastAPI /api/health endpoint."""
+    try:
+        resp = requests.get(f"{RESUME_API_URL}/api/health", timeout=10)
+        return resp.json()
+    except Exception as e:
+        return {"status": "unreachable", "message": str(e)}
+
+
+async def send_pdf_to_user(update: Update, filename: str) -> bool:
     """
-    Build a LaTeX resume from free-form user text using Gemini via the
-    customize endpoint, or fall back to a structured template.
+    Fetch PDF from internal API and send directly as a Telegram document.
+    This avoids broken URL downloads when PUBLIC_URL is not publicly accessible.
+    Returns True on success.
     """
-    latex = r"""
+    pdf_bytes, error = fetch_pdf_bytes(filename)
+    if pdf_bytes:
+        bio = BytesIO(pdf_bytes)
+        bio.name = filename
+        await update.message.reply_document(
+            document=bio,
+            filename=filename,
+            caption="📄 Your resume PDF is ready!"
+        )
+        return True
+    logger.error(f"Failed to fetch PDF {filename}: {error}")
+    return False
+
+
+def build_latex_fallback() -> str:
+    """Build a basic LaTeX resume template as a fallback."""
+    return r"""
 \documentclass[letterpaper,11pt]{article}
 \usepackage[margin=0.75in]{geometry}
 \usepackage{enumitem}
@@ -95,9 +120,6 @@ def build_latex_from_details(details: str) -> str:
 \setlist[itemize]{noitemsep, topsep=2pt}
 
 \begin{document}
-
-% ── Parsed from user input ──
-""" + f"% Input: {details[:200]}\n" + r"""
 
 \begin{center}
 {\LARGE \textbf{Your Name}} \\[4pt]
@@ -129,7 +151,6 @@ GPA: X.XX
 
 \end{document}
 """
-    return latex
 
 
 # ── Command Handlers ──────────────────────────────────────────────────────────
@@ -139,14 +160,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("📄 Create Resume", callback_data="create")],
         [InlineKeyboardButton("🎯 Tailor to Job", callback_data="tailor")],
         [InlineKeyboardButton("📋 List My PDFs", callback_data="list")],
+        [InlineKeyboardButton("🔍 API Status", callback_data="status")],
     ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
         "👋 Welcome to *ResumeBot*!\n\n"
-        "I can create professional PDF resumes for you.\n\n"
+        "I generate professional PDF resumes and send them directly to you.\n\n"
         "What would you like to do?",
         parse_mode="Markdown",
-        reply_markup=reply_markup
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 
@@ -156,20 +177,51 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/start - Show main menu\n"
         "/create - Create a new resume PDF\n"
         "/tailor - Tailor resume to a job description\n"
-        "/list - List all your generated PDFs\n"
-        "/help - Show this help message\n\n"
-        "*How to create a resume:*\n"
-        "1. Send /create\n"
-        "2. Paste your resume details (name, experience, skills, education)\n"
-        "3. I'll generate a PDF and send you the download link!",
+        "/list - List all generated PDFs\n"
+        "/status - Check API health\n"
+        "/cancel - Cancel current operation\n"
+        "/help - Show this message\n\n"
+        "*How it works:*\n"
+        "1. Send /create and paste your details\n"
+        "2. The bot generates a PDF and sends it directly to you\n"
+        "3. Use /tailor to customize for a specific job\n\n"
+        "*For best results:* Ensure GEMINI_API_KEY is configured.",
         parse_mode="Markdown"
+    )
+
+
+async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg_obj = update.message or (update.callback_query and update.callback_query.message)
+    if not msg_obj:
+        return
+
+    await msg_obj.reply_text("🔍 Checking API status...")
+    health = check_api_health()
+    api_status = health.get("status", "unknown")
+    latex_ok = health.get("latex_installed", False)
+    detail = health.get("message", "")
+
+    if api_status == "healthy":
+        icon = "✅"
+        text = "API is healthy"
+    elif api_status == "unreachable":
+        icon = "❌"
+        text = "API unreachable - is the resume-generator container running?"
+    else:
+        icon = "⚠️"
+        text = f"API status: {api_status}"
+
+    await msg_obj.reply_text(
+        f"{icon} {text}\n"
+        f"LaTeX: {'✅ installed' if latex_ok else '❌ NOT installed'}\n"
+        f"{detail}"
     )
 
 
 async def create_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "📝 *Create Resume*\n\n"
-        "Please send me your resume details in this format:\n\n"
+        "Send me your details in this format:\n\n"
         "```\n"
         "Name: John Doe\n"
         "Email: john@email.com\n"
@@ -185,7 +237,8 @@ async def create_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Projects:\n"
         "- MyApp: A web app built with React and FastAPI\n"
         "```\n\n"
-        "Send your details and I'll generate the PDF! 🚀",
+        "Send your details and I'll generate the PDF! 🚀\n"
+        "Send /cancel to abort.",
         parse_mode="Markdown"
     )
     return COLLECTING_DETAILS
@@ -194,40 +247,53 @@ async def create_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def tailor_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🎯 *Tailor Resume to Job Description*\n\n"
-        "Please paste the job description text below.\n"
-        "I'll customize a resume to match the requirements!",
+        "Paste the job description text below.\n"
+        "I'll customize a resume to match the requirements!\n\n"
+        "Send /cancel to abort.",
         parse_mode="Markdown"
     )
     return COLLECTING_JD
 
 
 async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🔍 Fetching your PDFs...")
-    result = list_pdfs()
-    if not result.get("pdfs"):
-        await update.message.reply_text("No PDFs generated yet. Use /create to make one!")
+    msg_obj = update.message or (update.callback_query and update.callback_query.message)
+    if not msg_obj:
         return
-    # Send without parse_mode to avoid issues with underscores in filenames/URLs
-    msg = "📄 Your Generated PDFs:\n\n"
-    for pdf in result["pdfs"]:
+
+    await msg_obj.reply_text("🔍 Fetching your PDFs...")
+    result = list_pdfs()
+    pdfs = result.get("pdfs", [])
+
+    if not pdfs:
+        await msg_obj.reply_text(
+            "No PDFs generated yet.\n"
+            "Use /create to make one or /tailor to customize for a job!"
+        )
+        return
+
+    lines = ["📄 Your Generated PDFs:\n"]
+    for pdf in pdfs:
         name = pdf["filename"]
         size_kb = pdf["size"] / 1024
-        download_url = f"{PUBLIC_URL}/api/pdfs/{name}"
-        msg += f"• {name} ({size_kb:.1f} KB)\n  {download_url}\n\n"
-    await update.message.reply_text(msg)
+        lines.append(f"• {name} ({size_kb:.1f} KB)")
+
+    lines.append("\nUse /create or /tailor to generate more.")
+    await msg_obj.reply_text("\n".join(lines))
 
 
-# ── Conversation Handlers ─────────────────────────────────────────────────────
+# ── Conversation Message Handlers ─────────────────────────────────────────────
 
 async def collect_resume_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Receive user details, build LaTeX, call API, return PDF link."""
+    """Receive user details, use AI to build resume, send PDF as document."""
     user_text = update.message.text
-    await update.message.reply_text("⚙️ Generating your resume PDF... please wait!")
-
-    # Use customize-resume endpoint with user details as JD context
-    # This uses Gemini to build a proper resume
     filename = f"resume_{update.effective_user.id}"
 
+    await update.message.reply_text(
+        "⚙️ Generating your resume PDF... please wait!\n"
+        "(This may take up to 60 seconds)"
+    )
+
+    # Try AI-powered customization first
     result = customize_resume(
         jd_text=f"Create a professional resume for this person:\n\n{user_text}",
         filename=filename
@@ -235,97 +301,166 @@ async def collect_resume_details(update: Update, context: ContextTypes.DEFAULT_T
 
     if result.get("success"):
         pdf_filename = result.get("filename", f"{filename}.pdf")
-        download_url = f"{PUBLIC_URL}/api/pdfs/{pdf_filename}"
-        # No parse_mode - filenames with underscores break Markdown parsing
-        await update.message.reply_text(
-            f"✅ Your resume is ready!\n\n"
-            f"📥 Download here:\n{download_url}\n\n"
-            f"Tip: Use /tailor to customize it for a specific job!"
-        )
-    else:
-        # Fallback: build basic LaTeX and generate directly
-        logger.warning(f"customize_resume failed: {result.get('message')}. Trying fallback.")
-        latex = build_latex_from_details(user_text)
-        gen_result = generate_pdf(latex, filename)
-        if gen_result.get("success"):
-            pdf_filename = gen_result.get("filename", f"{filename}.pdf")
-            download_url = f"{PUBLIC_URL}/api/pdfs/{pdf_filename}"
-            # No parse_mode - filenames with underscores break Markdown parsing
+        sent = await send_pdf_to_user(update, pdf_filename)
+        if sent:
             await update.message.reply_text(
-                f"✅ Resume generated!\n\n"
-                f"📥 Download here:\n{download_url}\n\n"
-                f"Note: For AI-powered customization, ensure GEMINI_API_KEY is set."
+                "Tip: Use /tailor to customize this resume for a specific job!"
             )
         else:
-            error_msg = gen_result.get('message', 'Unknown error')
+            await update.message.reply_text(
+                f"⚠️ PDF was generated but couldn't be delivered.\n"
+                f"Filename: {pdf_filename}\n\n"
+                "Please check the server logs."
+            )
+    else:
+        # Fallback: generate from basic LaTeX template
+        err = result.get("message", "Unknown error")
+        logger.warning(f"customize_resume failed: {err}. Using fallback.")
+        latex = build_latex_fallback()
+        gen_result = generate_pdf(latex, filename)
+
+        if gen_result.get("success"):
+            pdf_filename = gen_result.get("filename", f"{filename}.pdf")
+            sent = await send_pdf_to_user(update, pdf_filename)
+            if not sent:
+                await update.message.reply_text(
+                    f"⚠️ PDF generated but couldn't be delivered.\n"
+                    f"Filename: {pdf_filename}"
+                )
+            await update.message.reply_text(
+                "Note: This is a template resume. For AI-powered customization, "
+                "ensure GEMINI_API_KEY is set in the environment."
+            )
+        else:
+            error_msg = gen_result.get("message", "Unknown error")
             logger.error(f"generate_pdf also failed: {error_msg}")
             await update.message.reply_text(
                 f"❌ Error generating resume:\n{error_msg}\n\n"
-                f"Please check your details and try again with /create"
+                "Check /status to verify the API is healthy, then try /create again."
             )
 
     return ConversationHandler.END
 
 
 async def collect_jd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Receive JD text, call customize API, return PDF link."""
+    """Receive JD text, tailor resume, send PDF as document."""
     jd_text = update.message.text
-    await update.message.reply_text("🎯 Tailoring your resume to the job description...")
-
     filename = f"tailored_{update.effective_user.id}"
+
+    await update.message.reply_text(
+        "🎯 Tailoring your resume to the job description...\n"
+        "(This may take up to 60 seconds)"
+    )
+
     result = customize_resume(jd_text, filename)
 
     if result.get("success"):
         pdf_filename = result.get("filename", f"{filename}.pdf")
-        download_url = f"{PUBLIC_URL}/api/pdfs/{pdf_filename}"
-        # No parse_mode - filenames with underscores break Markdown parsing
-        await update.message.reply_text(
-            f"✅ Tailored resume ready!\n\n"
-            f"📥 Download here:\n{download_url}"
-        )
+        sent = await send_pdf_to_user(update, pdf_filename)
+        if not sent:
+            await update.message.reply_text(
+                f"⚠️ PDF generated but couldn't be delivered.\n"
+                f"Filename: {pdf_filename}"
+            )
     else:
         await update.message.reply_text(
             f"❌ Error: {result.get('message', 'Unknown error')}\n\n"
-            f"Make sure GEMINI_API_KEY is configured."
+            "Make sure GEMINI_API_KEY is configured and try /tailor again.\n"
+            "Check /status for API health."
         )
 
     return ConversationHandler.END
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Cancelled. Use /start to begin again.")
+    context.user_data.clear()
+    await update.message.reply_text(
+        "Cancelled. Use /start to begin again or /help for commands."
+    )
     return ConversationHandler.END
 
+
+# ── Inline Button Handler ─────────────────────────────────────────────────────
 
 async def handle_inline_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
     if query.data == "create":
         await query.message.reply_text(
-            "📝 Send me your resume details!\n\n"
-            "Include: Name, Email, Phone, Experience, Education, Skills, Projects"
+            "📝 *Create Resume*\n\n"
+            "Send me your details!\n\n"
+            "Include: Name, Email, Phone, Experience, Education, Skills, Projects\n\n"
+            "Send /cancel to abort.",
+            parse_mode="Markdown"
         )
         context.user_data["state"] = COLLECTING_DETAILS
-    elif query.data == "tailor":
-        await query.message.reply_text("🎯 Paste the job description text:")
-        context.user_data["state"] = COLLECTING_JD
-    elif query.data == "list":
-        await list_command(query, context)
 
+    elif query.data == "tailor":
+        await query.message.reply_text(
+            "🎯 *Tailor Resume*\n\n"
+            "Paste the job description text:\n\n"
+            "Send /cancel to abort.",
+            parse_mode="Markdown"
+        )
+        context.user_data["state"] = COLLECTING_JD
+
+    elif query.data == "list":
+        result = list_pdfs()
+        pdfs = result.get("pdfs", [])
+        if not pdfs:
+            await query.message.reply_text(
+                "No PDFs generated yet.\n"
+                "Use /create to make one!"
+            )
+        else:
+            lines = ["📄 Your Generated PDFs:\n"]
+            for pdf in pdfs:
+                name = pdf["filename"]
+                size_kb = pdf["size"] / 1024
+                lines.append(f"• {name} ({size_kb:.1f} KB)")
+            lines.append("\nUse /create or /tailor to generate more.")
+            await query.message.reply_text("\n".join(lines))
+
+    elif query.data == "status":
+        health = check_api_health()
+        api_status = health.get("status", "unknown")
+        latex_ok = health.get("latex_installed", False)
+        detail = health.get("message", "")
+
+        if api_status == "healthy":
+            icon = "✅"
+            text = "API is healthy"
+        elif api_status == "unreachable":
+            icon = "❌"
+            text = "API unreachable"
+        else:
+            icon = "⚠️"
+            text = f"API status: {api_status}"
+
+        await query.message.reply_text(
+            f"{icon} {text}\n"
+            f"LaTeX: {'✅ installed' if latex_ok else '❌ NOT installed'}\n"
+            f"{detail}"
+        )
+
+
+# ── Fallback Message Handler ──────────────────────────────────────────────────
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle free-form messages based on user state."""
+    """Handle free-form messages when user is in a state set by inline buttons."""
     state = context.user_data.get("state")
+
     if state == COLLECTING_DETAILS:
-        context.user_data["state"] = None
+        context.user_data.pop("state", None)
         await collect_resume_details(update, context)
     elif state == COLLECTING_JD:
-        context.user_data["state"] = None
+        context.user_data.pop("state", None)
         await collect_jd(update, context)
     else:
         await update.message.reply_text(
             "Use /create to make a resume or /tailor to customize for a job.\n"
-            "Type /help for all commands."
+            "Type /help for all commands or /start for the main menu."
         )
 
 
@@ -333,35 +468,45 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     if not TELEGRAM_BOT_TOKEN:
-        raise ValueError("TELEGRAM_BOT_TOKEN environment variable not set")
+        raise ValueError("TELEGRAM_BOT_TOKEN environment variable is not set")
 
-    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    # Conversation handler for /create
+    # ConversationHandler for /create command
     create_conv = ConversationHandler(
         entry_points=[CommandHandler("create", create_command)],
-        states={COLLECTING_DETAILS: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_resume_details)]},
+        states={
+            COLLECTING_DETAILS: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, collect_resume_details)
+            ]
+        },
         fallbacks=[CommandHandler("cancel", cancel)],
+        allow_reentry=True,
     )
 
-    # Conversation handler for /tailor
+    # ConversationHandler for /tailor command
     tailor_conv = ConversationHandler(
         entry_points=[CommandHandler("tailor", tailor_command)],
-        states={COLLECTING_JD: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_jd)]},
+        states={
+            COLLECTING_JD: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, collect_jd)
+            ]
+        },
         fallbacks=[CommandHandler("cancel", cancel)],
+        allow_reentry=True,
     )
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("list", list_command))
-    app.add_handler(create_conv)
-    app.add_handler(tailor_conv)
-    from telegram.ext import CallbackQueryHandler
-    app.add_handler(CallbackQueryHandler(handle_inline_buttons))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("status", status_command))
+    application.add_handler(CommandHandler("list", list_command))
+    application.add_handler(create_conv)
+    application.add_handler(tailor_conv)
+    application.add_handler(CallbackQueryHandler(handle_inline_buttons))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     logger.info("ResumeBot starting...")
-    app.run_polling(drop_pending_updates=True)
+    application.run_polling(drop_pending_updates=True)
 
 
 if __name__ == "__main__":
