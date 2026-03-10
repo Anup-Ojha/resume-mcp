@@ -53,8 +53,16 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     
+    # AI settings
+    gemini_api_key: str = ""
+
+    # Supabase settings
+    supabase_url: str = ""
+    supabase_service_key: str = ""
+
     class Config:
         env_file = ".env"
+        extra = "ignore"
         
     def ensure_directories(self):
         """Create necessary directories if they don't exist"""

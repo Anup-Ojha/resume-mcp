@@ -1,8 +1,13 @@
 import os
 from typing import Optional, Dict, Any
-from supabase import create_client, Client
 from pydantic import BaseModel
 import logging
+
+try:
+    from supabase import create_client, Client
+    _SUPABASE_AVAILABLE = True
+except ImportError:
+    _SUPABASE_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -20,14 +25,18 @@ class ResumeSession(BaseModel):
 
 class SupabaseDB:
     def __init__(self):
-        self.url = os.getenv("SUPABASE_URL")
-        self.key = os.getenv("SUPABASE_SERVICE_KEY")
-        if self.url and self.key:
-            self.client: Client = create_client(self.url, self.key)
+        from app.config import settings
+        self.url = settings.supabase_url or os.getenv("SUPABASE_URL")
+        self.key = settings.supabase_service_key or os.getenv("SUPABASE_SERVICE_KEY")
+        if _SUPABASE_AVAILABLE and self.url and self.key:
+            self.client: "Client" = create_client(self.url, self.key)
             logger.info("Supabase client initialized")
         else:
             self.client = None
-            logger.warning("Supabase credentials missing. DB features disabled.")
+            if not _SUPABASE_AVAILABLE:
+                logger.warning("supabase package not installed. DB features disabled.")
+            else:
+                logger.warning("Supabase credentials missing. DB features disabled.")
 
     def get_or_create_user(self, phone: str, name: Optional[str] = None) -> Optional[Dict[str, Any]]:
         if not self.client: return None

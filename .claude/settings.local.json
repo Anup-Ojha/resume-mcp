@@ -12,7 +12,8 @@
       "Bash(cmd.exe /c \"docker ps\")",
       "Bash(cmd.exe /c \"docker ps 2>&1\")",
       "Bash(powershell.exe -Command:*)",
-      "Bash(tr:*)"
+      "Bash(tr:*)",
+      "Bash(venv/Scripts/pip show supabase)"
     ]
   }
 }
