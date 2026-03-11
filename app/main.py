@@ -374,6 +374,7 @@ async def tailor_smart(
     resume_file: Optional[UploadFile] = File(None),
     resume_text: Optional[str] = Form(None),
     filename: Optional[str] = Form(None),
+    custom_prompt: Optional[str] = Form(None),
 ):
     """
     Smart tailor endpoint.
@@ -405,7 +406,7 @@ async def tailor_smart(
     if existing_latex:
         logger.info(f"Using saved LaTeX source for user {clean_user_id}")
         success, tailored_latex, msg = resume_customizer.customize_resume(
-            existing_latex, requirements
+            existing_latex, requirements, custom_prompt=custom_prompt
         )
         if not success:
             raise HTTPException(status_code=500, detail=msg)
@@ -425,7 +426,7 @@ async def tailor_smart(
 
         logger.info(f"Tailoring from uploaded file for user {clean_user_id}")
         success, tailored_latex, msg = resume_customizer.create_tailored_resume_from_text(
-            parsed_text, requirements
+            parsed_text, requirements, custom_prompt=custom_prompt
         )
         if not success:
             raise HTTPException(status_code=500, detail=msg)
@@ -434,7 +435,7 @@ async def tailor_smart(
     elif resume_text:
         logger.info(f"Tailoring from typed text for user {clean_user_id}")
         success, tailored_latex, msg = resume_customizer.create_tailored_resume_from_text(
-            resume_text, requirements
+            resume_text, requirements, custom_prompt=custom_prompt
         )
         if not success:
             raise HTTPException(status_code=500, detail=msg)
@@ -743,6 +744,84 @@ async def apply_smart(
         "resume_filename": f"{output_filename}.pdf",
         "message_id": result_id,
     }
+
+
+class CreateResumeRequest(BaseModel):
+    user_details_text: str
+    user_id: str
+    custom_prompt: Optional[str] = None
+    filename: Optional[str] = None
+
+
+class UpdateResumeRequest(BaseModel):
+    user_id: str
+    update_instructions: str
+    custom_prompt: Optional[str] = None
+    filename: Optional[str] = None
+
+
+@app.post("/api/create-resume", response_model=PDFResponse)
+async def create_resume(request: CreateResumeRequest):
+    """
+    Create a brand-new resume from scratch using free-form user details + optional AI prompt.
+    Saves the LaTeX source so future /tailor-smart calls can use it.
+    """
+    if not resume_customizer.is_available():
+        raise HTTPException(status_code=503, detail="AI not available. Set GEMINI_API_KEY.")
+
+    clean_uid = request.user_id.strip()
+    output_filename = (request.filename or f"resume_{clean_uid}").strip()
+    if output_filename.endswith(".pdf"):
+        output_filename = output_filename[:-4]
+
+    success, latex, message = resume_customizer.create_resume_from_scratch(
+        user_details_text=request.user_details_text,
+        custom_prompt=request.custom_prompt,
+    )
+    if not success:
+        raise HTTPException(status_code=500, detail=message)
+
+    # compile_latex_to_pdf() auto-saves the .tex source at output_dir/{output_filename}.tex
+    pdf_success, _, pdf_message = latex_processor.compile_latex_to_pdf(latex, output_filename)
+    if pdf_success:
+        return PDFResponse(success=True, message=pdf_message, filename=f"{output_filename}.pdf")
+    raise HTTPException(status_code=500, detail=pdf_message)
+
+
+@app.post("/api/update-resume", response_model=PDFResponse)
+async def update_resume(request: UpdateResumeRequest):
+    """
+    Update the user's existing saved resume based on free-form instructions + optional AI prompt.
+    Falls back to error if no saved resume exists.
+    """
+    if not resume_customizer.is_available():
+        raise HTTPException(status_code=503, detail="AI not available. Set GEMINI_API_KEY.")
+
+    clean_uid = request.user_id.strip()
+    output_filename = (request.filename or f"resume_{clean_uid}").strip()
+    if output_filename.endswith(".pdf"):
+        output_filename = output_filename[:-4]
+
+    existing_latex = latex_processor.get_latex_source(f"resume_{clean_uid}")
+    if not existing_latex:
+        raise HTTPException(
+            status_code=404,
+            detail="No saved resume found. Use /create first to build a base resume."
+        )
+
+    success, updated_latex, message = resume_customizer.update_existing_resume(
+        existing_latex=existing_latex,
+        update_instructions=request.update_instructions,
+        custom_prompt=request.custom_prompt,
+    )
+    if not success:
+        raise HTTPException(status_code=500, detail=message)
+
+    # compile_latex_to_pdf() auto-saves the updated .tex source at output_dir/{output_filename}.tex
+    pdf_success, _, pdf_message = latex_processor.compile_latex_to_pdf(updated_latex, output_filename)
+    if pdf_success:
+        return PDFResponse(success=True, message=pdf_message, filename=f"{output_filename}.pdf")
+    raise HTTPException(status_code=500, detail=pdf_message)
 
 
 class EnhanceBulletsRequest(BaseModel):

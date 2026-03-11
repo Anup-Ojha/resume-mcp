@@ -81,11 +81,130 @@ Respond in JSON format with keys: technical_skills, soft_skills, responsibilitie
             logger.error(f"Error in AI JD analysis: {str(e)}")
             return extracted_requirements
     
+    def create_resume_from_scratch(
+        self,
+        user_details_text: str,
+        custom_prompt: Optional[str] = None,
+    ) -> Tuple[bool, str, str]:
+        """
+        Create a complete professional LaTeX resume from scratch using free-form user details.
+
+        Args:
+            user_details_text: Free-form text describing the user (name, experience, skills, etc.)
+            custom_prompt: Optional extra AI instructions (e.g. "focus on leadership", "ATS-friendly")
+
+        Returns:
+            Tuple of (success, latex_code, message)
+        """
+        if not self.is_available():
+            return False, "", "Gemini API key not configured."
+
+        extra = f"\n\nAdditional instructions from the user:\n{custom_prompt}" if custom_prompt else ""
+
+        prompt = f"""You are an expert resume writer and LaTeX developer.
+Create a complete, professional, ATS-optimised LaTeX resume for the following person.
+
+--- CANDIDATE DETAILS ---
+{user_details_text}
+--- END DETAILS ---
+{extra}
+
+Requirements:
+1. Extract and structure all provided information.
+2. Write strong, action-verb-led bullet points with quantifiable metrics where possible.
+3. Include sections: Contact Info, Summary, Experience, Education, Skills, Projects (if any).
+4. Use this LaTeX structure:
+   - \\documentclass[letterpaper,11pt]{{article}}
+   - Packages: geometry (0.75in margins), enumitem, hyperref (hidelinks), titlesec, parskip
+   - Section format: \\titleformat{{\\section}}{{\\large\\bfseries}}{{}}{{0em}}{{}}[\\titlerule]
+   - \\setlist[itemize]{{noitemsep, topsep=2pt}}
+5. Return ONLY the complete LaTeX code — no explanations, no markdown fences."""
+
+        try:
+            response = self.client.models.generate_content(
+                model=self.MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(temperature=0.4, max_output_tokens=4096)
+            )
+            latex = response.text.strip()
+            if latex.startswith("```"):
+                lines = latex.split('\n')
+                if lines[0].startswith("```"):
+                    lines = lines[1:]
+                if lines and lines[-1].strip() == "```":
+                    lines = lines[:-1]
+                latex = '\n'.join(lines)
+            return True, latex, "Resume created from scratch successfully."
+        except Exception as e:
+            logger.error(f"Error creating resume from scratch: {e}")
+            return False, "", f"Error creating resume: {str(e)}"
+
+    def update_existing_resume(
+        self,
+        existing_latex: str,
+        update_instructions: str,
+        custom_prompt: Optional[str] = None,
+    ) -> Tuple[bool, str, str]:
+        """
+        Update / modify an existing LaTeX resume based on user instructions.
+
+        Args:
+            existing_latex: Current resume LaTeX code
+            update_instructions: What the user wants changed (free-form text or prompt)
+            custom_prompt: Optional additional style/format instructions
+
+        Returns:
+            Tuple of (success, updated_latex, message)
+        """
+        if not self.is_available():
+            return False, existing_latex, "Gemini API key not configured."
+
+        extra = f"\nAdditional style/formatting instructions:\n{custom_prompt}" if custom_prompt else ""
+
+        prompt = f"""You are an expert resume writer and LaTeX developer.
+The user wants to update their existing resume based on specific instructions.
+
+--- EXISTING RESUME (LaTeX) ---
+{existing_latex}
+--- END EXISTING RESUME ---
+
+--- UPDATE INSTRUCTIONS ---
+{update_instructions}
+{extra}
+--- END INSTRUCTIONS ---
+
+Rules:
+1. Apply ALL requested changes precisely.
+2. Keep everything else unchanged.
+3. Maintain the exact same LaTeX structure and formatting style.
+4. Do NOT invent experience — only add/modify what the user explicitly requested.
+5. Return ONLY the complete updated LaTeX code — no explanations, no markdown fences."""
+
+        try:
+            response = self.client.models.generate_content(
+                model=self.MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(temperature=0.3, max_output_tokens=4096)
+            )
+            latex = response.text.strip()
+            if latex.startswith("```"):
+                lines = latex.split('\n')
+                if lines[0].startswith("```"):
+                    lines = lines[1:]
+                if lines and lines[-1].strip() == "```":
+                    lines = lines[:-1]
+                latex = '\n'.join(lines)
+            return True, latex, "Resume updated successfully."
+        except Exception as e:
+            logger.error(f"Error updating resume: {e}")
+            return False, existing_latex, f"Error updating resume: {str(e)}"
+
     def customize_resume(
         self,
         original_latex: str,
         jd_requirements: Dict,
-        user_details: Optional[Dict] = None
+        user_details: Optional[Dict] = None,
+        custom_prompt: Optional[str] = None,
     ) -> Tuple[bool, str, str]:
         """
         Customize resume LaTeX code to match job description using Gemini
@@ -110,6 +229,8 @@ Respond in JSON format with keys: technical_skills, soft_skills, responsibilitie
             if user_details:
                 user_context = f"\n\nUser Information:\n{self._format_user_details(user_details)}"
             
+            extra_instr = f"\n9. Additional instructions from the user:\n{custom_prompt}" if custom_prompt else ""
+
             prompt = f"""You are an expert resume writer and ATS optimization specialist. Customize this LaTeX resume to better match the job requirements.
 
 Job Requirements:
@@ -127,7 +248,7 @@ Instructions:
 5. IMPORTANT - In the Projects section: naturally weave in JD-required technologies and skills into project descriptions. For example, if the JD requires Python and Docker, mention them in relevant project bullet points (e.g. "Built using Python with Docker containerization"). This helps pass ATS screening.
 6. In the Skills section: ensure ALL key technologies from the JD appear
 7. Do NOT invent experience - only add technologies that could plausibly have been used in those projects
-8. Maintain professional tone and accuracy
+8. Maintain professional tone and accuracy{extra_instr}
 
 Return ONLY the modified LaTeX code, no explanations."""
             
@@ -204,6 +325,7 @@ Return ONLY the modified LaTeX code, no explanations."""
         self,
         resume_text: str,
         jd_requirements: Dict,
+        custom_prompt: Optional[str] = None,
     ) -> Tuple[bool, str, str]:
         """
         Given a person's resume as plain text (e.g. parsed from PDF/DOCX/typed)
@@ -221,6 +343,8 @@ Return ONLY the modified LaTeX code, no explanations."""
 
         try:
             jd_context = self._build_jd_context(jd_requirements)
+
+            extra_instr = f"\n9. Additional instructions from the user:\n{custom_prompt}" if custom_prompt else ""
 
             prompt = f"""You are an expert resume writer and LaTeX developer.
 
@@ -246,9 +370,9 @@ Your task:
    - \\documentclass[letterpaper,11pt]{{article}}
    - Packages: geometry (0.75in margins), enumitem, hyperref (hidelinks), titlesec, parskip
    - Section format: \\titleformat{{\\section}}{{\\large\\bfseries}}{{}}{{0em}}{{}}[\\titlerule]
-   - \\setlist[itemize]{{noitemsep, topsep=2pt}}
-7. Include: Contact info, Summary, Experience, Education, Skills, Projects (if any).
-8. Return ONLY the complete LaTeX code — no explanations, no markdown fences."""
+   - \\setlist[itemize]{{noitemsep, topsep=2pt}}{extra_instr}
+Include: Contact info, Summary, Experience, Education, Skills, Projects (if any).
+Return ONLY the complete LaTeX code — no explanations, no markdown fences."""
 
             response = self.client.models.generate_content(
                 model=self.MODEL,
