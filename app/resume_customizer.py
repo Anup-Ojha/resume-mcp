@@ -16,12 +16,17 @@ logger = logging.getLogger(__name__)
 class ResumeCustomizer:
     """AI-powered resume customization based on job descriptions using Google Gemini"""
     
+    MODEL = "gemini-2.0-flash"
+
     def __init__(self):
-        self.api_key = os.getenv('GEMINI_API_KEY') or os.getenv('GOOGLE_API_KEY')
+        from app.config import settings
+        self.api_key = settings.gemini_api_key or os.getenv('GEMINI_API_KEY') or os.getenv('GOOGLE_API_KEY')
         if self.api_key:
             self.client = genai.Client(api_key=self.api_key)
+            logger.info("Gemini client initialized")
         else:
             self.client = None
+            logger.warning("Gemini API key not found. AI features disabled.")
     
     def is_available(self) -> bool:
         """Check if AI customization is available"""
@@ -55,7 +60,7 @@ Job Description:
 Respond in JSON format with keys: technical_skills, soft_skills, responsibilities, experience_level, qualifications"""
             
             response = self.client.models.generate_content(
-                model='gemini-2.0-flash-exp',
+                model=self.MODEL,
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.3,
@@ -126,7 +131,7 @@ Instructions:
 Return ONLY the modified LaTeX code, no explanations."""
             
             response = self.client.models.generate_content(
-                model='gemini-2.0-flash-exp',
+                model=self.MODEL,
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.4,
@@ -243,7 +248,7 @@ Your task:
 8. Return ONLY the complete LaTeX code — no explanations, no markdown fences."""
 
             response = self.client.models.generate_content(
-                model='gemini-2.0-flash-exp',
+                model=self.MODEL,
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.4,
@@ -300,7 +305,7 @@ Job Description:
 
 Respond ONLY in JSON with keys: recipient_email, job_title, company_name, key_requirements"""
             response = self.client.models.generate_content(
-                model='gemini-2.0-flash-exp',
+                model=self.MODEL,
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.2,
@@ -359,7 +364,7 @@ Rules:
 
 Respond ONLY in JSON with keys: subject, body"""
             response = self.client.models.generate_content(
-                model='gemini-2.0-flash-exp',
+                model=self.MODEL,
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.5,
