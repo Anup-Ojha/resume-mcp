@@ -110,7 +110,7 @@ Respond in JSON format with keys: technical_skills, soft_skills, responsibilitie
             if user_details:
                 user_context = f"\n\nUser Information:\n{self._format_user_details(user_details)}"
             
-            prompt = f"""You are an expert resume writer. Customize this LaTeX resume to better match the job requirements.
+            prompt = f"""You are an expert resume writer and ATS optimization specialist. Customize this LaTeX resume to better match the job requirements.
 
 Job Requirements:
 {jd_context}
@@ -122,11 +122,12 @@ Current Resume (LaTeX):
 Instructions:
 1. Keep the exact same LaTeX structure and formatting
 2. Emphasize skills and experience that match the JD requirements
-3. Use \\textbf{{}} to highlight matching technical skills
+3. Use \\textbf{{}} to highlight matching technical skills in the Skills section
 4. Reorder bullet points to prioritize relevant experience
-5. Add keywords from the JD naturally where appropriate
-6. Do NOT invent experience - only emphasize existing content
-7. Maintain professional tone and accuracy
+5. IMPORTANT - In the Projects section: naturally weave in JD-required technologies and skills into project descriptions. For example, if the JD requires Python and Docker, mention them in relevant project bullet points (e.g. "Built using Python with Docker containerization"). This helps pass ATS screening.
+6. In the Skills section: ensure ALL key technologies from the JD appear
+7. Do NOT invent experience - only add technologies that could plausibly have been used in those projects
+8. Maintain professional tone and accuracy
 
 Return ONLY the modified LaTeX code, no explanations."""
             
@@ -238,8 +239,10 @@ Your task:
 2. Rewrite it as a complete, professional LaTeX resume.
 3. Emphasize and reorder content that directly matches the job requirements.
 4. Use \\textbf{{}} to bold technical skills that appear in the JD.
-5. Keep all bullet points truthful — do NOT invent experience or qualifications.
-6. Use this LaTeX structure:
+5. IMPORTANT - In the Projects section: naturally weave JD-required skills and technologies into project descriptions as tools/languages used. For example: "Developed REST API using \\textbf{{Python}} and \\textbf{{FastAPI}}, deployed with \\textbf{{Docker}}". This is critical for passing ATS screening rounds.
+6. In the Skills section: list ALL key technologies and skills mentioned in the JD that the candidate could reasonably have.
+7. Keep all bullet points truthful — do NOT invent experience or qualifications.
+8. Use this LaTeX structure:
    - \\documentclass[letterpaper,11pt]{{article}}
    - Packages: geometry (0.75in margins), enumitem, hyperref (hidelinks), titlesec, parskip
    - Section format: \\titleformat{{\\section}}{{\\large\\bfseries}}{{}}{{0em}}{{}}[\\titlerule]

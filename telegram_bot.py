@@ -60,6 +60,15 @@ def _get(path: str, **kwargs) -> dict:
         return {"success": False, "message": str(e)}
 
 
+def _user_filename(user) -> str:
+    """Generate a clean firstname_lastname filename from Telegram user object."""
+    import re
+    parts = [user.first_name or "", user.last_name or ""]
+    name = "_".join(p.strip() for p in parts if p.strip())
+    name = re.sub(r'[^a-zA-Z0-9_]', '_', name).strip('_')
+    return name if name else f"resume_{user.id}"
+
+
 def generate_pdf(latex_code: str, filename: str = "resume") -> dict:
     return _post("/api/generate", json={"latex_code": latex_code, "filename": filename}, timeout=60)
 
@@ -74,9 +83,12 @@ def tailor_smart(
     resume_file_bytes: bytes = None,
     resume_file_name: str = None,
     resume_text: str = None,
+    filename: str = None,
 ) -> dict:
     """Call /api/tailor-smart with the given resume source."""
     data = {"jd_text": jd_text, "user_id": user_id}
+    if filename:
+        data["filename"] = filename
     files = None
     if resume_file_bytes:
         files = {"resume_file": (resume_file_name or "resume.pdf", resume_file_bytes)}
@@ -385,7 +397,7 @@ async def create_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def collect_resume_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Receive user details, use AI to build resume, send PDF as document."""
     user_text = update.message.text
-    filename = f"resume_{update.effective_user.id}"
+    filename = _user_filename(update.effective_user)
 
     await update.message.reply_text(
         "⚙️ Generating your resume PDF… please wait!\n(This may take up to 60 seconds)"
@@ -462,8 +474,8 @@ async def tailor_got_jd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "✅ Found your existing resume! Tailoring it to the job description…\n"
             "(This may take up to 90 seconds)"
         )
-        filename = f"tailored_{user_id}"
-        result = tailor_smart(jd_text=jd_text, user_id=user_id)
+        filename = _user_filename(update.effective_user)
+        result = tailor_smart(jd_text=jd_text, user_id=user_id, filename=filename)
         result_filename = result.get("filename", f"{filename}.pdf")
         if result.get("success"):
             sent = await send_pdf_to_user(update, result_filename)
@@ -569,12 +581,13 @@ async def tailor_got_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ Failed to download file: {e}")
         return ConversationHandler.END
 
-    filename = f"tailored_{user_id}"
+    filename = _user_filename(update.effective_user)
     result = tailor_smart(
         jd_text=jd_text,
         user_id=user_id,
         resume_file_bytes=file_bytes,
         resume_file_name=file_name,
+        filename=filename,
     )
 
     if result.get("success"):
@@ -609,8 +622,8 @@ async def tailor_got_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "This may take up to 90 seconds."
     )
 
-    filename = f"tailored_{user_id}"
-    result = tailor_smart(jd_text=jd_text, user_id=user_id, resume_text=resume_text)
+    filename = _user_filename(update.effective_user)
+    result = tailor_smart(jd_text=jd_text, user_id=user_id, resume_text=resume_text, filename=filename)
 
     if result.get("success"):
         pdf_filename = result.get("filename", f"{filename}.pdf")
