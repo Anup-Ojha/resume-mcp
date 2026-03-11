@@ -745,6 +745,39 @@ async def apply_smart(
     }
 
 
+class EnhanceBulletsRequest(BaseModel):
+    job_title: str
+    industry: str
+    current_bullet: str
+    exclude_verbs: Optional[list] = None
+
+
+@app.post("/api/enhance-bullets")
+async def enhance_bullets(request: EnhanceBulletsRequest):
+    """
+    Transform a basic resume bullet into 3 high-impact ATS-optimized variations.
+
+    Returns a JSON array of 3 enhanced bullet strings.
+    """
+    if not resume_customizer.is_available():
+        raise HTTPException(
+            status_code=503,
+            detail="AI not available. Please set GEMINI_API_KEY environment variable."
+        )
+
+    success, bullets, message = resume_customizer.enhance_bullet_points(
+        job_title=request.job_title,
+        industry=request.industry,
+        current_bullet=request.current_bullet,
+        exclude_verbs=request.exclude_verbs,
+    )
+
+    if not success:
+        raise HTTPException(status_code=500, detail=message)
+
+    return {"success": True, "bullets": bullets, "message": message}
+
+
 @app.get("/api/gmail/search")
 async def gmail_search(
     telegram_user_id: str = Query(...),

@@ -380,6 +380,84 @@ Respond ONLY in JSON with keys: subject, body"""
             logger.error(f"Error composing application email: {e}")
             return True, fallback_subject, fallback_body, "Fallback template used"
 
+    def enhance_bullet_points(
+        self,
+        job_title: str,
+        industry: str,
+        current_bullet: str,
+        exclude_verbs: Optional[List[str]] = None,
+    ) -> Tuple[bool, List[str], str]:
+        """
+        Transform a basic resume bullet into 3 high-impact, ATS-optimized variations.
+
+        Args:
+            job_title: Target job title (e.g., "QA Engineer")
+            industry: Target industry (e.g., "Technology")
+            current_bullet: The existing bullet point to enhance
+            exclude_verbs: List of action verbs already used (to ensure uniqueness)
+
+        Returns:
+            Tuple of (success, [bullet1, bullet2, bullet3], message)
+        """
+        if not self.is_available():
+            return False, [], "Gemini API key not configured."
+
+        exclude_verbs_str = ", ".join(exclude_verbs) if exclude_verbs else "None"
+
+        system_prompt = """You are an expert Resume Strategist and ATS Optimization Engine.
+
+Constraint Checklist (Mandatory):
+1. Action-First Structure: Every bullet MUST start with a strong, past-tense action verb.
+2. The Formula: [Strong Action Verb] + [Specific Task/Action] + [Quantifiable Metric/Result].
+3. No Repetition: Each variation must start with a UNIQUE action verb.
+4. Length Requirement: Each bullet must be at least 12 words long.
+5. Quantification: Include specific metrics (%, $, time saved, headcount, or frequency). If none provided, infer realistic industry-standard benchmarks.
+6. Punctuation: End every bullet with a period.
+7. Industry Keywords: Integrate terminology specific to the provided Job Title and Industry.
+
+Verb Lexicon (Priority by Category):
+- Leadership: Spearheaded, Orchestrated, Pioneered, Galvanized
+- Technical/Innovation: Architected, Engineered, Modularized, Automated
+- Analysis/Data: Quantified, Forecasted, Synthesized, Audited
+- Efficiency: Streamlined, Optimized, Expedited, Refined
+
+Return ONLY a JSON object with key "bullets" containing an array of exactly 3 strings."""
+
+        user_prompt = (
+            f"Job Title: {job_title}\n"
+            f"Target Industry: {industry}\n"
+            f"Current Bullet: {current_bullet}\n"
+            f"Exclude Verbs: {exclude_verbs_str}"
+        )
+
+        try:
+            import json
+            response = self.client.models.generate_content(
+                model=self.MODEL,
+                contents=[
+                    types.Content(role="user", parts=[
+                        types.Part(text=system_prompt + "\n\n" + user_prompt)
+                    ])
+                ],
+                config=types.GenerateContentConfig(
+                    temperature=0.6,
+                    response_mime_type="application/json",
+                    max_output_tokens=1024,
+                )
+            )
+
+            data = json.loads(response.text)
+            bullets = data.get("bullets", [])
+
+            if not isinstance(bullets, list) or len(bullets) < 3:
+                return False, [], "AI returned an unexpected format."
+
+            return True, bullets[:3], "Bullets enhanced successfully."
+
+        except Exception as e:
+            logger.error(f"Error enhancing bullet points: {e}")
+            return False, [], f"Error enhancing bullets: {str(e)}"
+
     def highlight_matching_skills(self, latex_code: str, jd_skills: List[str]) -> str:
         """
         Highlight skills in LaTeX that match JD requirements
