@@ -118,12 +118,20 @@ Create a complete, professional, ATS-optimised LaTeX resume for the candidate de
 
 LaTeX structure to use:
 - \\documentclass[letterpaper,11pt]{{article}}
-- Packages: geometry (margins 0.75in all sides), enumitem, hyperref with hidelinks, titlesec, parskip
+- Packages: geometry (margins 0.75in all sides), enumitem, hyperref with hidelinks, titlesec, parskip, microtype
+- microtype improves text spacing/justification — always include it to prevent word-spacing glitches
 - Section format: \\titleformat{{\\section}}{{\\large\\bfseries}}{{}}{{0em}}{{}}[\\titlerule]
 - List settings: \\setlist[itemize]{{noitemsep, topsep=2pt, leftmargin=*}}
 - Header: large bold centred name, then contact line with $|$ separators
 - Experience entries: company + dates on one line (dates right-aligned with \\hfill), job title on next line in italics, then bullet points
-- Section order: Contact → Summary → Experience → Education → Projects → Technical Skills → Certifications
+- Certifications section: use \\begin{{itemize}} with one \\item per certification — format each as "Certification Name: brief one-line description"
+- Awards/Achievements section (if present): use \\begin{{itemize}} with one \\item per award — format each as "Award Name: brief description and context"
+- Section order: Contact → Summary → Experience → Education → Projects → Technical Skills → Certifications → Awards & Achievements
+
+⚠️ BULLET POINT QUALITY RULES:
+- Every single bullet point (\\item) in Experience, Projects, Awards, and Certifications MUST be at least 12 words long.
+- Count the words — if a bullet is under 12 words, expand it with additional context, impact, or methodology until it meets 12 words minimum.
+- Never write a bullet like "Led design of system." — always expand: "Led the end-to-end design and validation of an automated control system for production use."
 
 Return ONLY raw LaTeX code. No markdown fences, no comments outside LaTeX, no explanations."""
 
@@ -380,12 +388,20 @@ Tailoring instructions:
 
 LaTeX structure to use:
 - \\documentclass[letterpaper,11pt]{{article}}
-- Packages: geometry (margins 0.75in all sides), enumitem, hyperref with hidelinks, titlesec, parskip
+- Packages: geometry (margins 0.75in all sides), enumitem, hyperref with hidelinks, titlesec, parskip, microtype
+- microtype improves text spacing/justification — always include it to prevent word-spacing glitches
 - Section format: \\titleformat{{\\section}}{{\\large\\bfseries}}{{}}{{0em}}{{}}[\\titlerule]
 - List settings: \\setlist[itemize]{{noitemsep, topsep=2pt, leftmargin=*}}
 - Header: large bold centred name, then contact line with $|$ separators
 - Experience entries: company + dates on one line (dates right-aligned with \\hfill), job title on next line in italics, then bullet points
-- Section order: Contact → Summary → Experience → Education → Projects → Technical Skills → Certifications
+- Certifications section: use \\begin{{itemize}} with one \\item per certification — format each as "Certification Name: brief one-line description"
+- Awards/Achievements section (if present): use \\begin{{itemize}} with one \\item per award — format each as "Award Name: brief description and context"
+- Section order: Contact → Summary → Experience → Education → Projects → Technical Skills → Certifications → Awards & Achievements
+
+⚠️ BULLET POINT QUALITY RULES:
+- Every single bullet point (\\item) in Experience, Projects, Awards, and Certifications MUST be at least 12 words long.
+- Count the words — if a bullet is under 12 words, expand it with additional context, impact, or methodology until it meets 12 words minimum.
+- Never write a bullet like "Led design of system." — always expand: "Led the end-to-end design and validation of an automated control system for production use."
 
 Return ONLY raw LaTeX code. No markdown fences, no comments outside LaTeX, no explanations."""
 
