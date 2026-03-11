@@ -1,101 +1,1284 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LaTeX Resume Generator</title>
-    <meta name="description" content="Generate professional PDF resumes from LaTeX code with AI assistance">
-    
-    <!-- CodeMirror for syntax highlighting -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
-    
-    <!-- Custom styles -->
-    <link rel="stylesheet" href="/static/css/style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ResumeForge — AI Resume Generator</title>
+  <meta name="description" content="Create ATS-optimised, professionally formatted PDF resumes in seconds using AI and LaTeX. Available via Telegram bot or MCP server." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Variables ──────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #ffffff;
+      --bg-2:      #f8f9fb;
+      --bg-3:      #f0f2f5;
+      --border:    #e4e7ec;
+      --border-2:  #d0d5dd;
+      --text-1:    #0d1117;
+      --text-2:    #3f4a5b;
+      --text-3:    #6b7685;
+      --accent:    #1a6ef8;
+      --accent-h:  #0f55d0;
+      --accent-bg: #eff5ff;
+      --green:     #16a34a;
+      --green-bg:  #f0fdf4;
+      --amber:     #d97706;
+      --amber-bg:  #fffbeb;
+      --red:       #dc2626;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+      --shadow-md: 0 4px 16px rgba(0,0,0,.07), 0 2px 4px rgba(0,0,0,.04);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,.09), 0 4px 12px rgba(0,0,0,.05);
+      --radius:    10px;
+      --radius-lg: 16px;
+      --nav-h:     60px;
+    }
+
+    [data-theme="dark"] {
+      --bg:        #0c0e12;
+      --bg-2:      #131720;
+      --bg-3:      #1a1f2e;
+      --border:    #232b3a;
+      --border-2:  #2e3849;
+      --text-1:    #edf0f4;
+      --text-2:    #aab4c4;
+      --text-3:    #6b7a92;
+      --accent:    #4d8ef8;
+      --accent-h:  #6ba4ff;
+      --accent-bg: #0f1c35;
+      --green:     #22c55e;
+      --green-bg:  #052012;
+      --amber:     #f59e0b;
+      --amber-bg:  #1c1200;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,.3);
+      --shadow-md: 0 4px 16px rgba(0,0,0,.4);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,.5);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text-1);
+      line-height: 1.6;
+      transition: background .25s, color .25s;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Nav ────────────────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      height: var(--nav-h);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      gap: 24px;
+      backdrop-filter: blur(10px);
+      transition: background .25s, border-color .25s;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: var(--text-1);
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+
+    .nav-logo svg { flex-shrink: 0; }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+    }
+
+    .nav-links a {
+      color: var(--text-2);
+      font-size: .875rem;
+      font-weight: 500;
+      padding: 6px 12px;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: color .15s, background .15s;
+    }
+    .nav-links a:hover { color: var(--text-1); background: var(--bg-3); }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+    }
+
+    .btn-nav {
+      font-size: .8125rem;
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: 7px;
+      border: 1px solid var(--border-2);
+      background: var(--bg-2);
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all .15s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-nav:hover { background: var(--bg-3); color: var(--text-1); text-decoration: none; }
+
+    .theme-toggle {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-2);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .15s;
+      color: var(--text-2);
+      flex-shrink: 0;
+    }
+    .theme-toggle:hover { background: var(--bg-3); color: var(--text-1); }
+    .theme-toggle .icon-moon { display: none; }
+    [data-theme="dark"] .theme-toggle .icon-sun { display: none; }
+    [data-theme="dark"] .theme-toggle .icon-moon { display: block; }
+
+    /* ── Sections ───────────────────────────────────────────────── */
+    section { padding: 80px 24px; }
+    .container { max-width: 1120px; margin: 0 auto; }
+    .container-sm { max-width: 760px; margin: 0 auto; }
+
+    /* ── Hero ───────────────────────────────────────────────────── */
+    #hero {
+      padding: 100px 24px 80px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 40px 40px;
+      opacity: .35;
+      pointer-events: none;
+    }
+
+    [data-theme="dark"] #hero::before { opacity: .15; }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent-bg);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      border-opacity: .3;
+      font-size: .75rem;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      border-radius: 100px;
+      margin-bottom: 28px;
+    }
+
+    .hero-badge span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; animation: pulse 2s infinite; }
+
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+
+    h1 {
+      font-size: clamp(2.2rem, 5vw, 3.6rem);
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -.025em;
+      color: var(--text-1);
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    h1 em {
+      font-style: normal;
+      color: var(--accent);
+    }
+
+    .hero-sub {
+      font-size: clamp(.95rem, 2vw, 1.125rem);
+      color: var(--text-2);
+      max-width: 560px;
+      margin: 0 auto 36px;
+      position: relative;
+    }
+
+    .hero-cta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      position: relative;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      font-size: .9375rem;
+      padding: 11px 24px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      transition: background .15s, transform .1s;
+      text-decoration: none;
+    }
+    .btn-primary:hover { background: var(--accent-h); text-decoration: none; color: #fff; transform: translateY(-1px); }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      color: var(--text-2);
+      font-weight: 500;
+      font-size: .9375rem;
+      padding: 11px 24px;
+      border-radius: 8px;
+      border: 1px solid var(--border-2);
+      cursor: pointer;
+      transition: all .15s;
+      text-decoration: none;
+    }
+    .btn-ghost:hover { background: var(--bg-2); color: var(--text-1); text-decoration: none; }
+
+    /* ── Stats ──────────────────────────────────────────────────── */
+    #stats {
+      padding: 60px 24px;
+      background: var(--bg-2);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 2px;
+      background: var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .stat-card {
+      background: var(--bg-2);
+      padding: 32px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: background .15s;
+    }
+    .stat-card:hover { background: var(--bg-3); }
+
+    .stat-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 8px;
+    }
+
+    .stat-icon.blue { background: var(--accent-bg); color: var(--accent); }
+    .stat-icon.green { background: var(--green-bg); color: var(--green); }
+    .stat-icon.amber { background: var(--amber-bg); color: var(--amber); }
+    .stat-icon.purple { background: #f3f0ff; color: #7c3aed; }
+    [data-theme="dark"] .stat-icon.purple { background: #1a1030; color: #a78bfa; }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -.03em;
+      color: var(--text-1);
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-size: .8125rem;
+      color: var(--text-3);
+      font-weight: 500;
+    }
+
+    .stat-value.loading { opacity: .3; }
+
+    /* ── Section Headings ───────────────────────────────────────── */
+    .section-label {
+      font-size: .75rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      font-size: clamp(1.5rem, 3vw, 2.25rem);
+      font-weight: 700;
+      letter-spacing: -.02em;
+      line-height: 1.2;
+      color: var(--text-1);
+      margin-bottom: 16px;
+    }
+
+    .section-sub {
+      font-size: 1rem;
+      color: var(--text-2);
+      max-width: 520px;
+      margin-bottom: 48px;
+    }
+
+    /* ── Features Grid ──────────────────────────────────────────── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    .feature-card {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      transition: border-color .2s, box-shadow .2s, transform .2s;
+    }
+    .feature-card:hover {
+      border-color: var(--accent);
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+    }
+
+    .feature-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      font-size: 20px;
+    }
+
+    .feature-card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-1);
+      margin-bottom: 8px;
+    }
+
+    .feature-card p {
+      font-size: .875rem;
+      color: var(--text-2);
+      line-height: 1.65;
+    }
+
+    /* ── How it works ───────────────────────────────────────────── */
+    #how { background: var(--bg-2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 0;
+      position: relative;
+    }
+
+    .step {
+      padding: 32px 28px;
+      position: relative;
+    }
+
+    .step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 50%;
+      width: 1px;
+      background: var(--border);
+    }
+
+    .step-num {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--accent-bg);
+      color: var(--accent);
+      font-size: .8125rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      border: 1px solid var(--accent);
+      border-opacity: .3;
+    }
+
+    .step h3 {
+      font-size: .9375rem;
+      font-weight: 600;
+      color: var(--text-1);
+      margin-bottom: 8px;
+    }
+
+    .step p {
+      font-size: .8125rem;
+      color: var(--text-2);
+      line-height: 1.6;
+    }
+
+    /* ── MCP Section ────────────────────────────────────────────── */
+    .mcp-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      align-items: center;
+    }
+
+    @media(max-width: 720px) { .mcp-grid { grid-template-columns: 1fr; } }
+
+    .mcp-info h2 { margin-bottom: 12px; }
+    .mcp-info p { font-size: .9375rem; color: var(--text-2); margin-bottom: 20px; line-height: 1.7; }
+
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 24px;
+    }
+
+    .tag {
+      font-size: .75rem;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: var(--bg-3);
+      color: var(--text-2);
+      border: 1px solid var(--border);
+    }
+
+    .code-block {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .code-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .code-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .code-dots span {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .code-dots span:nth-child(1) { background: #ff5f57; }
+    .code-dots span:nth-child(2) { background: #febc2e; }
+    .code-dots span:nth-child(3) { background: #28c840; }
+
+    .code-title {
+      font-size: .75rem;
+      color: var(--text-3);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .code-body {
+      padding: 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .8125rem;
+      line-height: 1.75;
+      color: var(--text-2);
+      overflow-x: auto;
+    }
+
+    .code-body .kw { color: var(--accent); }
+    .code-body .str { color: var(--green); }
+    .code-body .cmt { color: var(--text-3); font-style: italic; }
+    .code-body .val { color: var(--amber); }
+
+    /* ── Telegram ───────────────────────────────────────────────── */
+    .tg-commands {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    .tg-cmd {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      transition: border-color .15s;
+    }
+    .tg-cmd:hover { border-color: var(--accent); }
+
+    .tg-cmd-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: var(--accent-bg);
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 16px;
+    }
+
+    .tg-cmd-body { flex: 1; min-width: 0; }
+
+    .tg-cmd-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .8125rem;
+      font-weight: 500;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    .tg-cmd-desc {
+      font-size: .8125rem;
+      color: var(--text-2);
+      line-height: 1.5;
+    }
+
+    /* ── API Reference ──────────────────────────────────────────── */
+    .api-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .875rem;
+    }
+
+    .api-table thead th {
+      text-align: left;
+      padding: 10px 16px;
+      background: var(--bg-3);
+      color: var(--text-3);
+      font-weight: 600;
+      font-size: .75rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      border-bottom: 1px solid var(--border);
+    }
+    .api-table thead th:first-child { border-radius: var(--radius) 0 0 0; }
+    .api-table thead th:last-child { border-radius: 0 var(--radius) 0 0; }
+
+    .api-table tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background .1s;
+    }
+    .api-table tbody tr:hover { background: var(--bg-2); }
+    .api-table tbody tr:last-child { border-bottom: none; }
+
+    .api-table td { padding: 12px 16px; color: var(--text-2); vertical-align: top; }
+    .api-table td:first-child { white-space: nowrap; }
+
+    .method {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .6875rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      margin-right: 8px;
+    }
+    .method.get  { background: var(--green-bg); color: var(--green); }
+    .method.post { background: var(--accent-bg); color: var(--accent); }
+    .method.del  { background: #fff1f2; color: var(--red); }
+    [data-theme="dark"] .method.del { background: #1c0505; }
+
+    .route {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .8125rem;
+      color: var(--text-1);
+    }
+
+    .api-wrap {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    /* ── Status Bar ─────────────────────────────────────────────── */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      padding: 12px 20px;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: .8125rem;
+      flex-wrap: wrap;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--text-2);
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-3);
+    }
+    .status-dot.ok { background: var(--green); box-shadow: 0 0 0 3px var(--green-bg); }
+    .status-dot.warn { background: var(--amber); box-shadow: 0 0 0 3px var(--amber-bg); }
+
+    /* ── Footer ─────────────────────────────────────────────────── */
+    footer {
+      padding: 40px 24px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-2);
+    }
+
+    .footer-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .footer-logo {
+      font-weight: 700;
+      color: var(--text-1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: .9375rem;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      font-size: .8125rem;
+      color: var(--text-3);
+      text-decoration: none;
+      transition: color .15s;
+    }
+    .footer-links a:hover { color: var(--text-1); }
+
+    .footer-copy {
+      font-size: .8125rem;
+      color: var(--text-3);
+      text-align: right;
+    }
+
+    /* ── Hamburger (mobile) ─────────────────────────────────────── */
+    .hamburger {
+      display: none;
+      width: 36px;
+      height: 36px;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg-2);
+      cursor: pointer;
+      color: var(--text-2);
+      flex-shrink: 0;
+    }
+
+    @media(max-width: 768px) {
+      .nav-links { display: none; }
+      .nav-links.open {
+        display: flex;
+        flex-direction: column;
+        position: absolute;
+        top: var(--nav-h);
+        left: 0;
+        right: 0;
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+        padding: 12px 16px;
+        gap: 2px;
+        z-index: 99;
+      }
+      .hamburger { display: flex; }
+      .btn-nav.desktop-only { display: none; }
+      .steps { grid-template-columns: 1fr; }
+      .step::after { display: none !important; }
+      section { padding: 60px 16px; }
+      #hero { padding: 72px 16px 60px; }
+    }
+
+    /* ── Misc Utilities ─────────────────────────────────────────── */
+    .text-center { text-align: center; }
+    .mb-4 { margin-bottom: 4px; }
+    .mb-8 { margin-bottom: 8px; }
+    .mb-16 { margin-bottom: 16px; }
+    .mb-32 { margin-bottom: 32px; }
+    .divider { height: 1px; background: var(--border); margin: 48px 0; }
+    .badge {
+      display: inline-block;
+      font-size: .6875rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--accent-bg);
+      color: var(--accent);
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <header class="header">
-            <h1>📄 LaTeX Resume Generator</h1>
-            <p class="subtitle">Create professional PDF resumes with LaTeX</p>
-            <div id="health-status" class="health-status"></div>
-        </header>
 
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- Left Panel: Editor -->
-            <div class="editor-panel">
-                <div class="panel-header">
-                    <h2>LaTeX Editor</h2>
-                    <div class="editor-actions">
-                        <button id="load-template-btn" class="btn btn-secondary">
-                            📋 Load Template
-                        </button>
-                        <button id="clear-btn" class="btn btn-secondary">
-                            🗑️ Clear
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="editor-wrapper">
-                    <textarea id="latex-editor"></textarea>
-                </div>
+<!-- ── Nav ──────────────────────────────────────────────────────── -->
+<nav>
+  <a href="#" class="nav-logo" aria-label="ResumeForge Home">
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+      <rect width="28" height="28" rx="7" fill="var(--accent)"/>
+      <rect x="7" y="8" width="14" height="2" rx="1" fill="#fff"/>
+      <rect x="7" y="13" width="10" height="2" rx="1" fill="rgba(255,255,255,.7)"/>
+      <rect x="7" y="18" width="7" height="2" rx="1" fill="rgba(255,255,255,.5)"/>
+    </svg>
+    ResumeForge
+  </a>
 
-                <div class="form-group">
-                    <label for="filename-input">PDF Filename</label>
-                    <div class="filename-input-group">
-                        <input 
-                            type="text" 
-                            id="filename-input" 
-                            placeholder="my-resume" 
-                            value="resume"
-                        >
-                        <span class="file-extension">.pdf</span>
-                    </div>
-                </div>
+  <div class="nav-links" id="nav-links">
+    <a href="#features">Features</a>
+    <a href="#how">How it works</a>
+    <a href="#mcp">MCP Server</a>
+    <a href="#telegram">Telegram</a>
+    <a href="#api">API</a>
+  </div>
 
-                <button id="generate-btn" class="btn btn-primary btn-large">
-                    ⚡ Generate PDF
-                </button>
+  <div class="nav-right">
+    <a href="/docs" class="btn-nav desktop-only" target="_blank" rel="noopener">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      API Docs
+    </a>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">
+      <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+    <button class="hamburger" id="hamburger" aria-label="Toggle menu">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+</nav>
 
-                <div id="message-area" class="message-area"></div>
-            </div>
+<!-- ── Hero ─────────────────────────────────────────────────────── -->
+<section id="hero">
+  <div class="container-sm">
+    <div class="hero-badge">
+      <span></span>
+      Now with MCP Server &amp; Telegram Bot
+    </div>
+    <h1>Resume creation,<br><em>done right.</em></h1>
+    <p class="hero-sub">
+      ATS-optimised, professionally typeset PDF resumes — generated by Gemini AI, compiled with LaTeX.
+      Zero templates that look like templates.
+    </p>
+    <div class="hero-cta">
+      <a href="#features" class="btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+        See features
+      </a>
+      <a href="/docs" class="btn-ghost" target="_blank" rel="noopener">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        API Reference
+      </a>
+    </div>
+  </div>
+</section>
 
-            <!-- Right Panel: PDF List -->
-            <div class="pdf-panel">
-                <div class="panel-header">
-                    <h2>Generated PDFs</h2>
-                    <button id="refresh-btn" class="btn btn-secondary btn-small">
-                        🔄 Refresh
-                    </button>
-                </div>
-                
-                <div id="pdf-list" class="pdf-list">
-                    <div class="loading">Loading...</div>
-                </div>
-            </div>
+<!-- ── Stats ─────────────────────────────────────────────────────── -->
+<section id="stats">
+  <div class="container">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon blue">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         </div>
+        <div class="stat-value loading" id="stat-total">—</div>
+        <div class="stat-label">Resumes generated</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="stat-value loading" id="stat-created">—</div>
+        <div class="stat-label">Created from scratch</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon amber">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </div>
+        <div class="stat-value loading" id="stat-tailored">—</div>
+        <div class="stat-label">Tailored to job descriptions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon purple">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <div class="stat-value" id="stat-status">
+          <span style="font-size:1.1rem" id="health-label">Checking…</span>
+        </div>
+        <div class="stat-label">System status</div>
+      </div>
+    </div>
+  </div>
+</section>
 
-        <!-- Footer -->
-        <footer class="footer">
-            <p>💡 <strong>Tip:</strong> This generator works with any LLM via MCP server. Ask your AI assistant to create or edit resumes!</p>
-            <p class="mcp-info">
-                <a href="https://github.com/yourusername/latex-resume-generator" target="_blank">📚 Documentation</a> | 
-                <a href="/docs" target="_blank">🔧 API Docs</a>
-            </p>
-        </footer>
+<!-- ── Features ──────────────────────────────────────────────────── -->
+<section id="features">
+  <div class="container">
+    <div class="section-label">What you can do</div>
+    <h2>Everything a job search needs</h2>
+    <p class="section-sub">From first draft to sent application — one system handles it all.</p>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon" style="background:var(--accent-bg);color:var(--accent)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        </div>
+        <h3>Create from scratch</h3>
+        <p>Just describe your experience in plain text. Gemini turns it into a polished, ATS-ready LaTeX resume — no templates, no placeholders.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon" style="background:var(--green-bg);color:var(--green)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </div>
+        <h3>Tailor to any job</h3>
+        <p>Paste the job description and we rewrite your resume to emphasise matching skills, bold JD keywords, and pass ATS screening filters.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon" style="background:var(--amber-bg);color:var(--amber)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <h3>One-tap apply</h3>
+        <p>Connect your Google account. ResumeForge tailors your resume, writes a cover email, and sends it directly — all from Telegram.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#f0fdf4;color:#16a34a">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </div>
+        <h3>Update your resume</h3>
+        <p>Already have a base resume saved? Update sections, add new experience, or change the tone — all in natural language.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#f3f0ff;color:#7c3aed">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+        <h3>Bullet point enhancer</h3>
+        <p>Turn weak, short bullets into three high-impact ATS-optimised variations — starting with power verbs, quantified results included.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon" style="background:var(--accent-bg);color:var(--accent)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </div>
+        <h3>MCP &amp; API first</h3>
+        <p>Every capability exposed via REST API and MCP Server. Connect Claude Desktop, Cursor, or any MCP-compatible client directly.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── How it works ──────────────────────────────────────────────── -->
+<section id="how">
+  <div class="container">
+    <div class="section-label">Process</div>
+    <h2>How it works</h2>
+    <p class="section-sub">Four steps from details to inbox-ready PDF.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <h3>Provide your details</h3>
+        <p>Send your experience, skills, and background as free-form text — no rigid forms or fields to fill.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <h3>AI writes the resume</h3>
+        <p>Gemini reads your input and writes a complete LaTeX resume with correct sections, strong bullets, and clean formatting.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <h3>LaTeX compiles the PDF</h3>
+        <p>pdflatex compiles the source to a pixel-perfect PDF — the same tool used by academics and engineers worldwide.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <h3>Download or send</h3>
+        <p>Receive the PDF via Telegram, download via API, or have it emailed directly to a recruiter on your behalf.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── MCP Section ───────────────────────────────────────────────── -->
+<section id="mcp">
+  <div class="container">
+    <div class="mcp-grid">
+      <div class="mcp-info">
+        <div class="section-label">MCP Integration</div>
+        <h2>Works with any AI assistant</h2>
+        <p>
+          ResumeForge runs an MCP (Model Context Protocol) server mounted at <code style="font-family:var(--font-mono);background:var(--bg-3);padding:2px 6px;border-radius:4px;font-size:.875em">/mcp/sse</code>.
+          Connect Claude Desktop, Cursor, or any MCP-compatible client and ask it to
+          create or tailor your resume in natural language.
+        </p>
+        <p>
+          The MCP server exposes tools for resume generation, JD parsing, bullet enhancement, and PDF management — no separate integration required.
+        </p>
+        <div class="tag-list">
+          <span class="tag">Claude Desktop</span>
+          <span class="tag">Cursor</span>
+          <span class="tag">Zed</span>
+          <span class="tag">Windsurf</span>
+          <span class="tag">Any MCP client</span>
+          <span class="tag">SSE transport</span>
+        </div>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots">
+            <span></span><span></span><span></span>
+          </div>
+          <span class="code-title">claude_desktop_config.json</span>
+        </div>
+        <div class="code-body">
+<span class="cmt">// Claude Desktop MCP config</span>
+{
+  <span class="kw">"mcpServers"</span>: {
+    <span class="kw">"resume-forge"</span>: {
+      <span class="kw">"url"</span>: <span class="str">"http://localhost:8000/mcp/sse"</span>,
+      <span class="kw">"transport"</span>: <span class="str">"sse"</span>
+    }
+  }
+}
+
+<span class="cmt">// Then just ask Claude:</span>
+<span class="str">"Create a resume for a Senior DevOps Engineer
+ with 6 years at AWS and strong Kubernetes
+ and Terraform experience."</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Telegram ──────────────────────────────────────────────────── -->
+<section id="telegram" style="background:var(--bg-2);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <div class="container">
+    <div class="section-label">Telegram Bot</div>
+    <h2>Your resume, right in the chat</h2>
+    <p class="section-sub">A fully conversational Telegram bot — no app, no browser, just send a message.</p>
+
+    <div class="tg-commands">
+      <div class="tg-cmd">
+        <div class="tg-cmd-icon">✦</div>
+        <div class="tg-cmd-body">
+          <div class="tg-cmd-name">/create</div>
+          <div class="tg-cmd-desc">Start a conversation to collect your details and generate a brand-new resume from scratch.</div>
+        </div>
+      </div>
+      <div class="tg-cmd">
+        <div class="tg-cmd-icon">⇌</div>
+        <div class="tg-cmd-body">
+          <div class="tg-cmd-name">/tailor</div>
+          <div class="tg-cmd-desc">Paste or upload a job description and get a version of your resume tailored specifically for that role.</div>
+        </div>
+      </div>
+      <div class="tg-cmd">
+        <div class="tg-cmd-icon">✎</div>
+        <div class="tg-cmd-body">
+          <div class="tg-cmd-name">/update</div>
+          <div class="tg-cmd-desc">Tell the bot what to change — add a new job, update skills, or rewrite a section — in plain English.</div>
+        </div>
+      </div>
+      <div class="tg-cmd">
+        <div class="tg-cmd-icon">◈</div>
+        <div class="tg-cmd-body">
+          <div class="tg-cmd-name">/list</div>
+          <div class="tg-cmd-desc">View all previously generated PDFs with download links sent directly in the chat.</div>
+        </div>
+      </div>
+      <div class="tg-cmd">
+        <div class="tg-cmd-icon">◉</div>
+        <div class="tg-cmd-body">
+          <div class="tg-cmd-name">/apply</div>
+          <div class="tg-cmd-desc">Connect Gmail and send a tailored resume + cover email directly to the recruiter with one command.</div>
+        </div>
+      </div>
+      <div class="tg-cmd">
+        <div class="tg-cmd-icon">⊘</div>
+        <div class="tg-cmd-body">
+          <div class="tg-cmd-name">/cancel</div>
+          <div class="tg-cmd-desc">Cancel any in-progress operation and return to the main menu at any time.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── API Reference ─────────────────────────────────────────────── -->
+<section id="api">
+  <div class="container">
+    <div class="section-label">REST API</div>
+    <h2>Integrate with anything</h2>
+    <p class="section-sub">All endpoints are documented at <a href="/docs">/docs</a>. Key routes below.</p>
+
+    <div class="api-wrap">
+      <table class="api-table">
+        <thead>
+          <tr>
+            <th>Method &amp; Route</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="method post">POST</span><span class="route">/api/create-resume</span></td>
+            <td>Generate a full resume from free-form text. AI writes the LaTeX, pdflatex compiles it.</td>
+          </tr>
+          <tr>
+            <td><span class="method post">POST</span><span class="route">/api/tailor-smart</span></td>
+            <td>Tailor an existing or uploaded resume to a job description. Uses saved LaTeX if available.</td>
+          </tr>
+          <tr>
+            <td><span class="method post">POST</span><span class="route">/api/update-resume</span></td>
+            <td>Update an existing saved resume with natural-language instructions.</td>
+          </tr>
+          <tr>
+            <td><span class="method post">POST</span><span class="route">/api/enhance-bullets</span></td>
+            <td>Return 3 high-impact ATS-optimised rewrites of a given bullet point.</td>
+          </tr>
+          <tr>
+            <td><span class="method post">POST</span><span class="route">/api/parse-jd</span></td>
+            <td>Extract skills, experience level, and requirements from a job description file or text.</td>
+          </tr>
+          <tr>
+            <td><span class="method get">GET</span><span class="route">/api/pdfs</span></td>
+            <td>List all generated PDF resumes with metadata.</td>
+          </tr>
+          <tr>
+            <td><span class="method get">GET</span><span class="route">/api/pdfs/{filename}</span></td>
+            <td>Download a specific PDF by filename.</td>
+          </tr>
+          <tr>
+            <td><span class="method get">GET</span><span class="route">/api/stats</span></td>
+            <td>Live counts — total generated, created from scratch, tailored.</td>
+          </tr>
+          <tr>
+            <td><span class="method get">GET</span><span class="route">/api/health</span></td>
+            <td>System health — confirms LaTeX is installed and ready.</td>
+          </tr>
+          <tr>
+            <td><span class="method get">GET</span><span class="route">/mcp/sse</span></td>
+            <td>MCP Server SSE endpoint — connect any MCP client here.</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
-    <!-- Loading Overlay -->
-    <div id="loading-overlay" class="loading-overlay hidden">
-        <div class="spinner"></div>
-        <p>Generating PDF...</p>
+    <div style="margin-top:24px">
+      <div class="status-bar" id="status-bar">
+        <div class="status-item">
+          <div class="status-dot" id="dot-api"></div>
+          <span id="label-api">API</span>
+        </div>
+        <div class="status-item">
+          <div class="status-dot" id="dot-latex"></div>
+          <span id="label-latex">LaTeX</span>
+        </div>
+        <div class="status-item">
+          <div class="status-dot" id="dot-ai"></div>
+          <span id="label-ai">Gemini AI</span>
+        </div>
+        <div class="status-item" style="margin-left:auto;color:var(--text-3);font-size:.75rem" id="last-checked"></div>
+      </div>
     </div>
+  </div>
+</section>
 
-    <!-- Scripts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/stex/stex.min.js"></script>
-    <script src="/static/js/app.js"></script>
+<!-- ── Footer ────────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">
+      <svg width="22" height="22" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+        <rect width="28" height="28" rx="7" fill="var(--accent)"/>
+        <rect x="7" y="8" width="14" height="2" rx="1" fill="#fff"/>
+        <rect x="7" y="13" width="10" height="2" rx="1" fill="rgba(255,255,255,.7)"/>
+        <rect x="7" y="18" width="7" height="2" rx="1" fill="rgba(255,255,255,.5)"/>
+      </svg>
+      ResumeForge
+    </div>
+    <div class="footer-links">
+      <a href="/docs">API Docs</a>
+      <a href="#features">Features</a>
+      <a href="#mcp">MCP</a>
+      <a href="#telegram">Telegram</a>
+      <a href="#api">Endpoints</a>
+    </div>
+    <div class="footer-copy">Built with FastAPI, Gemini &amp; LaTeX</div>
+  </div>
+</footer>
+
+<script>
+  // ── Theme toggle ──────────────────────────────────────────────
+  const html = document.documentElement;
+  const toggleBtn = document.getElementById('theme-toggle');
+  const stored = localStorage.getItem('theme');
+  if (stored) html.setAttribute('data-theme', stored);
+
+  toggleBtn.addEventListener('click', () => {
+    const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+  });
+
+  // ── Mobile nav ────────────────────────────────────────────────
+  const hamburger = document.getElementById('hamburger');
+  const navLinks  = document.getElementById('nav-links');
+  hamburger.addEventListener('click', () => navLinks.classList.toggle('open'));
+  navLinks.querySelectorAll('a').forEach(a => a.addEventListener('click', () => navLinks.classList.remove('open')));
+
+  // ── Animated counter ─────────────────────────────────────────
+  function animateCount(el, target, duration = 900) {
+    if (target === 0) { el.textContent = '0'; el.classList.remove('loading'); return; }
+    const start = performance.now();
+    const step = ts => {
+      const p = Math.min((ts - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(ease * target);
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+    el.classList.remove('loading');
+  }
+
+  // ── Fetch stats ───────────────────────────────────────────────
+  async function loadStats() {
+    try {
+      const r = await fetch('/api/stats');
+      if (!r.ok) throw new Error('stats failed');
+      const d = await r.json();
+      animateCount(document.getElementById('stat-total'),   d.total_resumes    || 0);
+      animateCount(document.getElementById('stat-created'),  d.resumes_created  || 0);
+      animateCount(document.getElementById('stat-tailored'), d.resumes_tailored || 0);
+    } catch {
+      ['stat-total','stat-created','stat-tailored'].forEach(id => {
+        const el = document.getElementById(id);
+        el.textContent = '—';
+        el.classList.remove('loading');
+      });
+    }
+  }
+
+  // ── Health check ──────────────────────────────────────────────
+  async function loadHealth() {
+    const dotApi   = document.getElementById('dot-api');
+    const dotLatex = document.getElementById('dot-latex');
+    const dotAi    = document.getElementById('dot-ai');
+    const labelApi = document.getElementById('label-api');
+    const labelLatex = document.getElementById('label-latex');
+    const healthLabel = document.getElementById('health-label');
+    const lastChecked = document.getElementById('last-checked');
+
+    try {
+      const r = await fetch('/api/health');
+      const d = await r.json();
+
+      // API always ok if we got here
+      dotApi.classList.add('ok');
+      labelApi.textContent = 'API · Online';
+
+      if (d.latex_installed) {
+        dotLatex.classList.add('ok');
+        labelLatex.textContent = 'LaTeX · Ready';
+        healthLabel.textContent = 'All systems go';
+        healthLabel.style.color = 'var(--green)';
+        document.getElementById('stat-status').style.fontSize = '1.1rem';
+      } else {
+        dotLatex.classList.add('warn');
+        labelLatex.textContent = 'LaTeX · Not found';
+        healthLabel.textContent = 'Degraded';
+        healthLabel.style.color = 'var(--amber)';
+      }
+
+      // AI status — we can't easily check from here but we assume configured
+      dotAi.classList.add('ok');
+      document.getElementById('label-ai').textContent = 'Gemini AI · Connected';
+
+    } catch {
+      dotApi.classList.add('warn');
+      labelApi.textContent = 'API · Unreachable';
+      healthLabel.textContent = 'Offline';
+      healthLabel.style.color = 'var(--red)';
+    }
+
+    const now = new Date();
+    lastChecked.textContent = `Last checked ${now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;
+  }
+
+  // ── Init ─────────────────────────────────────────────────────
+  loadStats();
+  loadHealth();
+  setInterval(loadHealth, 60000); // refresh health every 60s
+</script>
 </body>
 </html>

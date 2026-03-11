@@ -14,7 +14,8 @@
       "Bash(powershell.exe -Command:*)",
       "Bash(tr:*)",
       "Bash(venv/Scripts/pip show supabase)",
-      "mcp__PDF_Tools_-_Analyze__Extract__Fill__Compare__read_pdf_content"
+      "mcp__PDF_Tools_-_Analyze__Extract__Fill__Compare__read_pdf_content",
+      "Bash(ls \"D:\\\\anup data\\\\All COmpany Projects\\\\local resume creator\\\\app\\\\static\"\" 2>/dev/null || dir \"D:anup dataAll COmpany Projectslocal resume creatorappstatic \")"
     ]
   }
 }

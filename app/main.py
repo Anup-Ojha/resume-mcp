@@ -188,6 +188,27 @@ async def health_check():
     }
 
 
+@app.get("/api/stats")
+async def get_stats():
+    """Return live usage statistics for the dashboard."""
+    try:
+        all_pdfs = latex_processor.list_generated_pdfs()
+        total = len(all_pdfs)
+        created  = sum(1 for p in all_pdfs if p.get("filename", "").startswith("resume_"))
+        tailored = sum(1 for p in all_pdfs if p.get("filename", "").startswith(("tailored_", "apply_")))
+        other    = total - created - tailored
+        return {
+            "success": True,
+            "total_resumes": total,
+            "resumes_created": created,
+            "resumes_tailored": tailored,
+            "other": other,
+        }
+    except Exception as e:
+        logger.error(f"Error fetching stats: {e}")
+        return {"success": False, "total_resumes": 0, "resumes_created": 0, "resumes_tailored": 0, "other": 0}
+
+
 @app.get("/api/template")
 async def get_template():
     """Get the default resume template"""
