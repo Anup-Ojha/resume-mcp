@@ -13,7 +13,8 @@
       "Bash(cmd.exe /c \"docker ps 2>&1\")",
       "Bash(powershell.exe -Command:*)",
       "Bash(tr:*)",
-      "Bash(venv/Scripts/pip show supabase)"
+      "Bash(venv/Scripts/pip show supabase)",
+      "mcp__PDF_Tools_-_Analyze__Extract__Fill__Compare__read_pdf_content"
     ]
   }
 }
