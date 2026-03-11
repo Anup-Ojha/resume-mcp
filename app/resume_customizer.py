@@ -102,23 +102,41 @@ Respond in JSON format with keys: technical_skills, soft_skills, responsibilitie
         extra = f"\n\nAdditional instructions from the user:\n{custom_prompt}" if custom_prompt else ""
 
         prompt = f"""You are an expert resume writer and LaTeX developer.
-Create a complete, professional, ATS-optimised LaTeX resume for the following person.
+Create a complete, professional, ATS-optimised LaTeX resume for the following candidate.
+
+⚠️ CRITICAL RULES — MUST FOLLOW:
+- Use ONLY the information explicitly provided below. Do NOT invent, fabricate, or use ANY placeholder data.
+- The candidate's REAL NAME must come from the details below — never use example names like "John Doe" or "Michael Martinez".
+- Contact details (email, phone, LinkedIn, GitHub, portfolio) — include ONLY what is explicitly stated. If not given, OMIT that field entirely. Never write placeholder URLs like "linkedin.com/in/yourname" or emails like "example@email.com".
+- Do NOT add fictional companies, degrees, skills, or projects that are not mentioned.
+- If a section has no data (e.g. no certifications), skip that section entirely.
 
 --- CANDIDATE DETAILS ---
 {user_details_text}
 --- END DETAILS ---
 {extra}
 
-Requirements:
-1. Extract and structure all provided information.
-2. Write strong, action-verb-led bullet points with quantifiable metrics where possible.
-3. Include sections: Contact Info, Summary, Experience, Education, Skills, Projects (if any).
-4. Use this LaTeX structure:
-   - \\documentclass[letterpaper,11pt]{{article}}
-   - Packages: geometry (0.75in margins), enumitem, hyperref (hidelinks), titlesec, parskip
-   - Section format: \\titleformat{{\\section}}{{\\large\\bfseries}}{{}}{{0em}}{{}}[\\titlerule]
-   - \\setlist[itemize]{{noitemsep, topsep=2pt}}
-5. Return ONLY the complete LaTeX code — no explanations, no markdown fences."""
+Resume Building Instructions:
+1. Extract ALL information exactly as given — name, contact, experience, education, skills, projects, certifications.
+2. Write strong, action-verb-led bullet points. Add realistic quantifiable metrics where the context strongly implies them.
+3. Include ONLY sections for which data was provided: Contact Info, Summary, Experience, Education, Projects, Technical Skills, Certifications.
+4. Order sections: Contact Info → Summary → Experience → Education → Projects → Technical Skills → Certifications.
+5. Use this professional LaTeX structure (match exactly):
+\\documentclass[letterpaper,11pt]{{article}}
+\\usepackage[top=0.5in, bottom=0.5in, left=0.75in, right=0.75in]{{geometry}}
+\\usepackage[T1]{{fontenc}}
+\\usepackage{{enumitem}}
+\\usepackage[hidelinks]{{hyperref}}
+\\usepackage{{titlesec}}
+\\usepackage{{parskip}}
+\\titleformat{{\\section}}{{\\large\\bfseries}}{{}}{{0em}}{{}}[\\titlerule]
+\\setlist[itemize]{{noitemsep, topsep=2pt, leftmargin=*}}
+\\setlist[itemize,2]{{label=$\\ast$, noitemsep, topsep=1pt}}
+\\parskip=4pt
+6. Header format: Large bold name centered, then one line with contact details separated by \\textbar{{}}.
+7. For each job: \\textbf{{Company}} followed by date range right-aligned on same line, then \\textit{{Job Title}} on next line, then bullet points.
+8. Sub-bullets (nested \\begin{{itemize}}) for project/task details under a role.
+9. Return ONLY the complete LaTeX code — no explanations, no markdown fences, no prose outside LaTeX."""
 
         try:
             response = self.client.models.generate_content(
@@ -350,6 +368,8 @@ Return ONLY the modified LaTeX code, no explanations."""
 
 A candidate has provided their resume content and wants it tailored to a specific job.
 
+⚠️ CRITICAL: Use ONLY the candidate's actual information. Do NOT use placeholder names, emails, or URLs. The candidate's real name and contacts must come from the resume text below.
+
 --- CANDIDATE RESUME ---
 {resume_text}
 --- END RESUME ---
@@ -359,19 +379,26 @@ A candidate has provided their resume content and wants it tailored to a specifi
 --- END JOB REQUIREMENTS ---
 
 Your task:
-1. Read the candidate's actual experience, skills, education and projects.
-2. Rewrite it as a complete, professional LaTeX resume.
+1. Read the candidate's actual experience, skills, education and projects — use the REAL name and contact details from the resume.
+2. Rewrite it as a complete, professional LaTeX resume tailored to the job.
 3. Emphasize and reorder content that directly matches the job requirements.
 4. Use \\textbf{{}} to bold technical skills that appear in the JD.
-5. IMPORTANT - In the Projects section: naturally weave JD-required skills and technologies into project descriptions as tools/languages used. For example: "Developed REST API using \\textbf{{Python}} and \\textbf{{FastAPI}}, deployed with \\textbf{{Docker}}". This is critical for passing ATS screening rounds.
-6. In the Skills section: list ALL key technologies and skills mentioned in the JD that the candidate could reasonably have.
+5. IMPORTANT — In Projects: naturally weave JD-required skills into project descriptions. E.g.: "Built REST API using \\textbf{{Python}} and \\textbf{{FastAPI}}, containerised with \\textbf{{Docker}}". Critical for ATS.
+6. In Skills: list ALL key technologies from the JD that the candidate could plausibly have.
 7. Keep all bullet points truthful — do NOT invent experience or qualifications.
-8. Use this LaTeX structure:
-   - \\documentclass[letterpaper,11pt]{{article}}
-   - Packages: geometry (0.75in margins), enumitem, hyperref (hidelinks), titlesec, parskip
-   - Section format: \\titleformat{{\\section}}{{\\large\\bfseries}}{{}}{{0em}}{{}}[\\titlerule]
-   - \\setlist[itemize]{{noitemsep, topsep=2pt}}{extra_instr}
-Include: Contact info, Summary, Experience, Education, Skills, Projects (if any).
+8. Use this professional LaTeX structure:
+\\documentclass[letterpaper,11pt]{{article}}
+\\usepackage[top=0.5in, bottom=0.5in, left=0.75in, right=0.75in]{{geometry}}
+\\usepackage[T1]{{fontenc}}
+\\usepackage{{enumitem}}
+\\usepackage[hidelinks]{{hyperref}}
+\\usepackage{{titlesec}}
+\\usepackage{{parskip}}
+\\titleformat{{\\section}}{{\\large\\bfseries}}{{}}{{0em}}{{}}[\\titlerule]
+\\setlist[itemize]{{noitemsep, topsep=2pt, leftmargin=*}}
+\\setlist[itemize,2]{{label=$\\ast$, noitemsep, topsep=1pt}}
+\\parskip=4pt{extra_instr}
+Include: Contact info, Summary, Experience, Education, Projects, Technical Skills, Certifications (if any).
 Return ONLY the complete LaTeX code — no explanations, no markdown fences."""
 
             response = self.client.models.generate_content(

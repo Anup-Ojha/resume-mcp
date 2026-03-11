@@ -466,33 +466,36 @@ async def _do_create(msg_obj, context: ContextTypes.DEFAULT_TYPE):
         "⚙️ Creating your resume… this may take up to 90 seconds."
     )
 
-    # If file was provided, parse it via tailor-smart with a "build new resume" JD hint
+    # Display name for the PDF sent to the user (e.g. "Anup_Ojha_Resume.pdf")
+    display_base = context.user_data.get("create_filename") or f"resume_{user_id}"
+
+    # If file was provided, parse it via tailor-smart with a "build new resume" JD hint.
+    # API always stores as resume_{uid} internally — no filename passed from bot.
     if file_bytes and not details_text:
         result = tailor_smart(
             jd_text="Create a complete professional resume. This is not a job tailoring — just rebuild the resume professionally.",
             user_id=user_id,
             resume_file_bytes=file_bytes,
             resume_file_name=file_name,
-            filename=context.user_data.get("create_filename", f"resume_{user_id}"),
             custom_prompt=custom_prompt,
         )
     else:
         result = create_resume_from_scratch(
             user_details_text=details_text,
             user_id=user_id,
-            filename=context.user_data.get("create_filename"),
+            # No filename passed — API always saves as resume_{uid} for future tailor/update
             custom_prompt=custom_prompt,
         )
 
     if result.get("success"):
-        pdf_filename = result.get("filename", "resume.pdf")
+        pdf_filename = result.get("filename", f"resume_{user_id}.pdf")
         pdf_bytes, err = fetch_pdf_bytes(pdf_filename)
         if pdf_bytes:
             bio = BytesIO(pdf_bytes)
-            bio.name = pdf_filename
+            display_name = f"{display_base}_Resume.pdf"
             await msg_obj.reply_document(
                 document=bio,
-                filename=pdf_filename,
+                filename=display_name,
                 caption="📄 Your new resume is ready!"
             )
             await msg_obj.reply_text(
@@ -519,6 +522,7 @@ async def update_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     user_id = str(update.effective_user.id)
     context.user_data["update_user_id"] = user_id
+    context.user_data["update_display_name"] = _user_filename(update.effective_user)
 
     if not resume_exists_for_user(user_id):
         await update.message.reply_text(
@@ -587,7 +591,7 @@ async def _do_update(msg_obj, context: ContextTypes.DEFAULT_TYPE):
     user_id = context.user_data.get("update_user_id", "")
     instructions = context.user_data.get("update_instructions", "")
     custom_prompt = context.user_data.get("custom_prompt")
-    filename = f"resume_{user_id}"
+    display_base = context.user_data.get("update_display_name") or f"resume_{user_id}"
 
     await msg_obj.reply_text(
         "⚙️ Updating your resume… this may take up to 90 seconds."
@@ -596,19 +600,19 @@ async def _do_update(msg_obj, context: ContextTypes.DEFAULT_TYPE):
     result = update_resume(
         user_id=user_id,
         update_instructions=instructions,
-        filename=filename,
+        # filename not passed — API uses resume_{uid} by default
         custom_prompt=custom_prompt,
     )
 
     if result.get("success"):
-        pdf_filename = result.get("filename", f"{filename}.pdf")
+        pdf_filename = result.get("filename", f"resume_{user_id}.pdf")
         pdf_bytes, err = fetch_pdf_bytes(pdf_filename)
         if pdf_bytes:
             bio = BytesIO(pdf_bytes)
-            bio.name = pdf_filename
+            display_name = f"{display_base}_Resume.pdf"
             await msg_obj.reply_document(
                 document=bio,
-                filename=pdf_filename,
+                filename=display_name,
                 caption="📄 Your updated resume is ready!"
             )
             await msg_obj.reply_text(
@@ -632,6 +636,7 @@ async def _do_update(msg_obj, context: ContextTypes.DEFAULT_TYPE):
 async def tailor_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     context.user_data["tailor_user_id"] = str(update.effective_user.id)
+    context.user_data["tailor_display_name"] = _user_filename(update.effective_user)
     await update.message.reply_text(
         "🎯 *Tailor Resume to Job Description*\n\n"
         "Paste the full job description below.\n"
@@ -707,6 +712,8 @@ async def _tailor_check_resume(msg_obj, context: ContextTypes.DEFAULT_TYPE):
 
     await msg_obj.reply_text("🔍 Checking for your existing resume…")
 
+    display_base = context.user_data.get("tailor_display_name") or f"resume_{user_id}"
+
     if resume_exists_for_user(user_id):
         await msg_obj.reply_text(
             "✅ Found your saved resume! Tailoring to the job description…\n"
@@ -724,10 +731,10 @@ async def _tailor_check_resume(msg_obj, context: ContextTypes.DEFAULT_TYPE):
             pdf_bytes, _ = fetch_pdf_bytes(pdf_filename)
             if pdf_bytes:
                 bio = BytesIO(pdf_bytes)
-                bio.name = pdf_filename
+                display_name = f"{display_base}_Tailored.pdf"
                 await msg_obj.reply_document(
                     document=bio,
-                    filename=pdf_filename,
+                    filename=display_name,
                     caption="📄 Your tailored resume is ready!"
                 )
                 await msg_obj.reply_text(
@@ -799,6 +806,7 @@ async def tailor_got_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
     filename = f"tailored_{user_id}"
+    display_base = context.user_data.get("tailor_display_name") or f"resume_{user_id}"
     result = tailor_smart(
         jd_text=jd_text,
         user_id=user_id,
@@ -812,8 +820,8 @@ async def tailor_got_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pdf_bytes, _ = fetch_pdf_bytes(pdf_filename)
         if pdf_bytes:
             bio = BytesIO(pdf_bytes)
-            bio.name = pdf_filename
-            await update.message.reply_document(document=bio, filename=pdf_filename,
+            display_name = f"{display_base}_Tailored.pdf"
+            await update.message.reply_document(document=bio, filename=display_name,
                                                 caption="📄 Your tailored resume!")
             await update.message.reply_text("Use /create to save a base resume for faster future tailoring.")
         else:
@@ -832,6 +840,7 @@ async def tailor_got_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✏️ Got your details! Tailoring… (up to 90 seconds)")
 
     filename = f"tailored_{user_id}"
+    display_base = context.user_data.get("tailor_display_name") or f"resume_{user_id}"
     result = tailor_smart(
         jd_text=jd_text,
         user_id=user_id,
@@ -844,8 +853,8 @@ async def tailor_got_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pdf_bytes, _ = fetch_pdf_bytes(pdf_filename)
         if pdf_bytes:
             bio = BytesIO(pdf_bytes)
-            bio.name = pdf_filename
-            await update.message.reply_document(document=bio, filename=pdf_filename,
+            display_name = f"{display_base}_Tailored.pdf"
+            await update.message.reply_document(document=bio, filename=display_name,
                                                 caption="📄 Your tailored resume!")
             await update.message.reply_text(
                 "Tip: Use /create to save your details as a base resume for future use."

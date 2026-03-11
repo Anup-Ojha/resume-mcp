@@ -770,9 +770,9 @@ async def create_resume(request: CreateResumeRequest):
         raise HTTPException(status_code=503, detail="AI not available. Set GEMINI_API_KEY.")
 
     clean_uid = request.user_id.strip()
-    output_filename = (request.filename or f"resume_{clean_uid}").strip()
-    if output_filename.endswith(".pdf"):
-        output_filename = output_filename[:-4]
+    # ALWAYS use resume_{uid} as storage key — ensures get_latex_source() works for tailor/update.
+    # The display filename (user's real name) is set by the bot when sending the document.
+    output_filename = f"resume_{clean_uid}"
 
     success, latex, message = resume_customizer.create_resume_from_scratch(
         user_details_text=request.user_details_text,
