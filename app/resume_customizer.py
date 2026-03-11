@@ -20,6 +20,7 @@ class ResumeCustomizer:
 
     def __init__(self):
         from app.config import settings
+        self._settings = settings
         self.api_key = settings.gemini_api_key or os.getenv('GEMINI_API_KEY') or os.getenv('GOOGLE_API_KEY')
         if self.api_key:
             self.client = genai.Client(api_key=self.api_key)
@@ -27,6 +28,18 @@ class ResumeCustomizer:
         else:
             self.client = None
             logger.warning("Gemini API key not found. AI features disabled.")
+
+    def _load_template(self) -> str:
+        """Load the canonical LaTeX resume template from disk."""
+        tpl_path = self._settings.templates_dir / "resume_template.tex"
+        if tpl_path.exists():
+            return tpl_path.read_text(encoding="utf-8")
+        # Fallback: look next to this file
+        fallback = self._settings.base_dir / "templates" / "resume_template.tex"
+        if fallback.exists():
+            return fallback.read_text(encoding="utf-8")
+        logger.warning("resume_template.tex not found — AI will generate structure from scratch")
+        return ""
     
     def is_available(self) -> bool:
         """Check if AI customization is available"""
@@ -99,47 +112,47 @@ Respond in JSON format with keys: technical_skills, soft_skills, responsibilitie
         if not self.is_available():
             return False, "", "Gemini API key not configured."
 
-        extra = f"\n\nAdditional instructions from the user:\n{custom_prompt}" if custom_prompt else ""
+        template = self._load_template()
+        extra = f"\n\nAdditional instructions:\n{custom_prompt}" if custom_prompt else ""
+
+        template_block = f"""
+--- LATEX TEMPLATE (structure is FIXED — copy preamble verbatim) ---
+{template}
+--- END TEMPLATE ---
+""" if template else ""
 
         prompt = f"""You are an expert resume writer and LaTeX developer.
-Create a complete, professional, ATS-optimised LaTeX resume for the candidate described below.
+Your job is to produce a complete LaTeX resume for the candidate below by filling their data
+into the provided template. The template defines ALL styling — you must not change it.
 
-⚠️ STRICT DATA RULES — YOU MUST FOLLOW THESE:
-- The candidate's REAL NAME, email, phone, LinkedIn, GitHub must come ONLY from the CANDIDATE DETAILS section below.
-- DO NOT use any placeholder or example data whatsoever. Names like "John Doe", "Michael Martinez", emails like "help@enhancv.com" or "example@email.com", or URLs like "linkedin.com/in/yourname" are STRICTLY FORBIDDEN.
-- If a contact field (phone, LinkedIn, GitHub, etc.) is NOT mentioned in the candidate details, OMIT it entirely from the resume.
-- DO NOT invent, hallucinate, or assume any experience, companies, degrees, or skills not explicitly stated.
-- If a section has no provided data, skip it entirely.
+⚠️ TEMPLATE RULES — MANDATORY:
+- Copy the ENTIRE preamble (everything from \\documentclass to \\begin{{document}}) EXACTLY as written. Do NOT add, remove, or alter any package, command, or setting.
+- Follow the same section structure, heading format, itemize nesting, and \\hfill date alignment shown in the template.
+- Keep \\raggedbottom, \\raggedright, \\setlength{{\\tabcolsep}}{{0in}}, \\pagestyle{{fancy}}, and all spacing commands exactly as-is.
 
+⚠️ DATA RULES — MANDATORY:
+- Use ONLY the candidate's real data from CANDIDATE DETAILS. Do NOT invent, assume, or hallucinate anything.
+- Names like "John Doe", emails like "example@email.com", URLs like "linkedin.com/in/yourname" are STRICTLY FORBIDDEN.
+- If a contact field (phone, LinkedIn, GitHub, Portfolio) is not provided, OMIT that field entirely from the header.
+- If a section has no data (e.g. no certifications), omit the entire section.
+
+⚠️ BULLET POINT RULES — MANDATORY:
+- Every \\item in Experience and Projects MUST be at least 12 words long.
+- Expand short bullets with context, methodology, tools used, or measurable impact.
+- Never write a bullet like "Led system design." — always expand to full, meaningful sentences.
+{template_block}
 --- CANDIDATE DETAILS START ---
 {user_details_text}
 --- CANDIDATE DETAILS END ---
 {extra}
 
-LaTeX structure to use:
-- \\documentclass[letterpaper,11pt]{{article}}
-- Packages: geometry (margins 0.75in all sides), enumitem, hyperref with hidelinks, titlesec, parskip, microtype
-- microtype improves text spacing/justification — always include it to prevent word-spacing glitches
-- Section format: \\titleformat{{\\section}}{{\\large\\bfseries}}{{}}{{0em}}{{}}[\\titlerule]
-- List settings: \\setlist[itemize]{{noitemsep, topsep=2pt, leftmargin=*}}
-- Header: large bold centred name, then contact line with $|$ separators
-- Experience entries: company + dates on one line (dates right-aligned with \\hfill), job title on next line in italics, then bullet points
-- Certifications section: use \\begin{{itemize}} with one \\item per certification — format each as "Certification Name: brief one-line description"
-- Awards/Achievements section (if present): use \\begin{{itemize}} with one \\item per award — format each as "Award Name: brief description and context"
-- Section order: Contact → Summary → Experience → Education → Projects → Technical Skills → Certifications → Awards & Achievements
-
-⚠️ BULLET POINT QUALITY RULES:
-- Every single bullet point (\\item) in Experience, Projects, Awards, and Certifications MUST be at least 12 words long.
-- Count the words — if a bullet is under 12 words, expand it with additional context, impact, or methodology until it meets 12 words minimum.
-- Never write a bullet like "Led design of system." — always expand: "Led the end-to-end design and validation of an automated control system for production use."
-
-Return ONLY raw LaTeX code. No markdown fences, no comments outside LaTeX, no explanations."""
+Return ONLY raw LaTeX code. No markdown fences, no explanations, no comments outside the LaTeX document."""
 
         try:
             response = self.client.models.generate_content(
                 model=self.MODEL,
                 contents=prompt,
-                config=types.GenerateContentConfig(temperature=0.4, max_output_tokens=4096)
+                config=types.GenerateContentConfig(temperature=0.3, max_output_tokens=4096)
             )
             latex = response.text.strip()
             if latex.startswith("```"):
@@ -244,34 +257,39 @@ Rules:
             if user_details:
                 user_context = f"\n\nUser Information:\n{self._format_user_details(user_details)}"
             
-            extra_instr = f"\n9. Additional instructions from the user:\n{custom_prompt}" if custom_prompt else ""
+            extra_instr = f"\n\nAdditional instructions:\n{custom_prompt}" if custom_prompt else ""
 
-            prompt = f"""You are an expert resume writer and ATS optimization specialist. Customize this LaTeX resume to better match the job requirements.
+            prompt = f"""You are an expert resume writer and ATS optimization specialist.
+Customize the candidate's existing LaTeX resume to better match the job requirements.
+
+⚠️ STRUCTURE RULES — MANDATORY:
+- Keep the ENTIRE preamble (\\documentclass through \\begin{{document}}) EXACTLY as written — do not add, remove, or alter any package, command, or setting.
+- Keep the same section structure, heading format, itemize nesting style, \\hfill date alignment, and spacing.
+- Do NOT change \\raggedbottom, \\raggedright, \\pagestyle{{fancy}}, or any margin settings.
+- Every \\item in Experience and Projects MUST remain at least 12 words long.
+
+⚠️ TAILORING RULES — MANDATORY:
+- Reorder and emphasise bullets that directly match the JD requirements.
+- Use \\textbf{{}} to bold technologies and skills that appear in the JD.
+- In Projects: naturally weave JD-required skills into descriptions (e.g. "Built using \\textbf{{Python}} with \\textbf{{Docker}} containerisation").
+- In Technical Skills: ensure ALL key technologies from the JD appear if plausibly relevant.
+- Do NOT invent experience — only highlight and reframe what already exists.
 
 Job Requirements:
 {jd_context}
 {user_context}
 
-Current Resume (LaTeX):
+Current Resume (LaTeX) — tailor this:
 {original_latex}
+{extra_instr}
 
-Instructions:
-1. Keep the exact same LaTeX structure and formatting
-2. Emphasize skills and experience that match the JD requirements
-3. Use \\textbf{{}} to highlight matching technical skills in the Skills section
-4. Reorder bullet points to prioritize relevant experience
-5. IMPORTANT - In the Projects section: naturally weave in JD-required technologies and skills into project descriptions. For example, if the JD requires Python and Docker, mention them in relevant project bullet points (e.g. "Built using Python with Docker containerization"). This helps pass ATS screening.
-6. In the Skills section: ensure ALL key technologies from the JD appear
-7. Do NOT invent experience - only add technologies that could plausibly have been used in those projects
-8. Maintain professional tone and accuracy{extra_instr}
+Return ONLY the modified LaTeX code, no explanations, no markdown fences."""
 
-Return ONLY the modified LaTeX code, no explanations."""
-            
             response = self.client.models.generate_content(
                 model=self.MODEL,
                 contents=prompt,
                 config=types.GenerateContentConfig(
-                    temperature=0.4,
+                    temperature=0.3,
                     max_output_tokens=4000
                 )
             )
@@ -358,19 +376,41 @@ Return ONLY the modified LaTeX code, no explanations."""
 
         try:
             jd_context = self._build_jd_context(jd_requirements)
+            template = self._load_template()
+            extra_instr = f"\n\nAdditional instructions:\n{custom_prompt}" if custom_prompt else ""
 
-            extra_instr = f"\n9. Additional instructions from the user:\n{custom_prompt}" if custom_prompt else ""
+            template_block = f"""
+--- LATEX TEMPLATE (structure is FIXED — copy preamble verbatim) ---
+{template}
+--- END TEMPLATE ---
+""" if template else ""
 
             prompt = f"""You are an expert resume writer and LaTeX developer.
-Create a complete, professional, ATS-optimised LaTeX resume for the candidate described below, tailored to the job requirements.
+Produce a complete LaTeX resume by filling the candidate's data into the provided template,
+then tailor the content to match the job requirements.
 
-⚠️ STRICT DATA RULES — YOU MUST FOLLOW THESE:
-- The candidate's REAL NAME, email, phone, LinkedIn, GitHub must come ONLY from the CANDIDATE RESUME section below.
-- DO NOT use any placeholder or example data whatsoever. Names like "John Doe", "Michael Martinez", emails like "help@enhancv.com" or "example@email.com", or URLs like "linkedin.com/in/yourname" are STRICTLY FORBIDDEN.
-- If a contact field (phone, LinkedIn, GitHub, etc.) is NOT present in the candidate resume, OMIT it entirely.
-- DO NOT invent, hallucinate, or assume any experience, companies, degrees, or skills not explicitly stated in the candidate resume.
-- If a section has no provided data, skip it entirely.
+⚠️ TEMPLATE RULES — MANDATORY:
+- Copy the ENTIRE preamble (everything from \\documentclass to \\begin{{document}}) EXACTLY as written. Do NOT add, remove, or alter any package, command, or setting.
+- Follow the same section structure, heading format, itemize nesting, and \\hfill date alignment shown in the template.
+- Keep \\raggedbottom, \\raggedright, \\setlength{{\\tabcolsep}}{{0in}}, \\pagestyle{{fancy}}, and all spacing commands exactly as-is.
 
+⚠️ DATA RULES — MANDATORY:
+- Use ONLY the candidate's real data from CANDIDATE RESUME. Do NOT invent, assume, or hallucinate anything.
+- Names like "John Doe", emails like "example@email.com", or URLs like "linkedin.com/in/yourname" are STRICTLY FORBIDDEN.
+- If a contact field (phone, LinkedIn, GitHub, Portfolio) is not in the resume, OMIT it from the header.
+- If a section has no data, omit it entirely.
+
+⚠️ TAILORING RULES — MANDATORY:
+- Reorder and emphasise bullets that directly match the job requirements.
+- Use \\textbf{{}} to bold technologies and skills that appear in the JD.
+- In Projects: naturally weave JD-required skills into descriptions. E.g.: "Built REST API using \\textbf{{Python}} and \\textbf{{FastAPI}}, containerised with \\textbf{{Docker}}."
+- In Technical Skills: ensure ALL key technologies from the JD appear if the candidate plausibly has them.
+- Do NOT invent experience — only highlight and reframe what exists.
+
+⚠️ BULLET POINT RULES — MANDATORY:
+- Every \\item in Experience and Projects MUST be at least 12 words long.
+- Expand short bullets with JD-relevant context, tools, methodology, or measurable impact.
+{template_block}
 --- CANDIDATE RESUME ---
 {resume_text}
 --- END RESUME ---
@@ -378,38 +418,15 @@ Create a complete, professional, ATS-optimised LaTeX resume for the candidate de
 --- JOB REQUIREMENTS ---
 {jd_context}
 --- END JOB REQUIREMENTS ---
+{extra_instr}
 
-Tailoring instructions:
-1. Emphasize and reorder content that directly matches the job requirements.
-2. Use \\textbf{{}} to bold technical skills that appear in the JD.
-3. IMPORTANT — In Projects: naturally weave JD-required skills into project descriptions. E.g.: "Built REST API using \\textbf{{Python}} and \\textbf{{FastAPI}}, containerised with \\textbf{{Docker}}". Critical for ATS.
-4. In Skills: list ALL key technologies from the JD that the candidate could plausibly have.
-5. Keep all bullet points truthful — do NOT invent experience or qualifications.{extra_instr}
-
-LaTeX structure to use:
-- \\documentclass[letterpaper,11pt]{{article}}
-- Packages: geometry (margins 0.75in all sides), enumitem, hyperref with hidelinks, titlesec, parskip, microtype
-- microtype improves text spacing/justification — always include it to prevent word-spacing glitches
-- Section format: \\titleformat{{\\section}}{{\\large\\bfseries}}{{}}{{0em}}{{}}[\\titlerule]
-- List settings: \\setlist[itemize]{{noitemsep, topsep=2pt, leftmargin=*}}
-- Header: large bold centred name, then contact line with $|$ separators
-- Experience entries: company + dates on one line (dates right-aligned with \\hfill), job title on next line in italics, then bullet points
-- Certifications section: use \\begin{{itemize}} with one \\item per certification — format each as "Certification Name: brief one-line description"
-- Awards/Achievements section (if present): use \\begin{{itemize}} with one \\item per award — format each as "Award Name: brief description and context"
-- Section order: Contact → Summary → Experience → Education → Projects → Technical Skills → Certifications → Awards & Achievements
-
-⚠️ BULLET POINT QUALITY RULES:
-- Every single bullet point (\\item) in Experience, Projects, Awards, and Certifications MUST be at least 12 words long.
-- Count the words — if a bullet is under 12 words, expand it with additional context, impact, or methodology until it meets 12 words minimum.
-- Never write a bullet like "Led design of system." — always expand: "Led the end-to-end design and validation of an automated control system for production use."
-
-Return ONLY raw LaTeX code. No markdown fences, no comments outside LaTeX, no explanations."""
+Return ONLY raw LaTeX code. No markdown fences, no explanations, no comments outside the LaTeX document."""
 
             response = self.client.models.generate_content(
                 model=self.MODEL,
                 contents=prompt,
                 config=types.GenerateContentConfig(
-                    temperature=0.4,
+                    temperature=0.3,
                     max_output_tokens=4096
                 )
             )
