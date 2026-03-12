@@ -71,7 +71,9 @@
 \section{Experience}
 \begin{itemize}
 (* for exp in data.experience *)
+\needspace{5\baselineskip}
 \item \textbf{(( exp.title | e )) --- (( exp.company | e ))} \hfill (( exp.start | e )) -- (( exp.end | e )) \\
+\nopagebreak[4]
 (* if exp.city and exp.country *)(( exp.city | e )), (( exp.country | e ))(* elif exp.city *)(( exp.city | e ))(* elif exp.country *)(( exp.country | e ))(* endif *)
 \nopagebreak[4]
 \begin{itemize}
@@ -88,7 +90,9 @@
 \section{Projects}
 \begin{itemize}
 (* for proj in data.projects *)
+\needspace{5\baselineskip}
     \item \textbf{(( proj.name | e ))} \\
+    \nopagebreak[4]
     \textit{(( proj.tech_stack | join_e ))}
     \nopagebreak[4]
     \begin{itemize}
