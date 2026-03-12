@@ -16,8 +16,7 @@ logger = logging.getLogger(__name__)
 class ResumeCustomizer:
     """AI-powered resume customization based on job descriptions using Google Gemini"""
     
-    MODEL      = "gemini-2.0-flash"         # fast model for simple tasks
-    JSON_MODEL = "gemini-2.5-pro-preview-06-05"  # pro model for structured JSON generation
+    MODEL = "gemini-2.0-flash"
 
     def __init__(self):
         from app.config import settings
@@ -633,77 +632,155 @@ Return ONLY a JSON object with key "bullets" containing an array of exactly 3 st
 
     # ── v2 Jinja2 pipeline methods ────────────────────────────────────────────
 
+    def _call_gemini_json(self, prompt: str) -> Tuple[bool, dict, str]:
+        """
+        Shared helper: call Gemini with JSON mode, strip fences, parse.
+        Returns (success, dict, message).
+        """
+        import json as _json
+        try:
+            response = self.client.models.generate_content(
+                model=self.MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.2,
+                    response_mime_type="application/json",
+                    max_output_tokens=4096,
+                ),
+            )
+            raw = response.text
+            if raw.strip().startswith("```"):
+                raw = "\n".join(
+                    line for line in raw.splitlines()
+                    if not line.strip().startswith("```")
+                )
+            return True, _json.loads(raw), "OK"
+        except Exception as exc:
+            logger.error(f"_call_gemini_json error: {exc}")
+            return False, {}, str(exc)
+
     def generate_resume_json(
         self,
         user_details_text: str,
         custom_prompt: Optional[str] = None,
     ) -> Tuple[bool, dict, str]:
         """
-        [v2]  AI → structured JSON only.  No LaTeX is generated here.
+        [v2]  Chunked AI → structured JSON.
 
-        Gemini extracts and structures the candidate's information into a
-        ResumeData-compatible dict.  The caller then passes this to
-        LatexRenderer.render_from_dict() to get deterministic LaTeX.
-
-        Returns (success, resume_dict, message).
+        Splits the work into 3 focused Gemini calls so each response stays
+        well within the 4096-token output limit:
+          Chunk A — header + education + skills + certifications + awards
+          Chunk B — work experience only
+          Chunk C — projects only
+        Results are merged into a single ResumeData-compatible dict.
         """
         if not self.is_available():
             return False, {}, "Gemini API key not configured."
 
-        import json as _json
-        from app.render_latex import ResumeData
-
-        schema = _json.dumps(ResumeData.model_json_schema(), indent=2)
         extra = f"\n\nAdditional instructions: {custom_prompt}" if custom_prompt else ""
+        src = f"--- CANDIDATE DETAILS ---\n{user_details_text}\n--- END ---"
 
-        prompt = f"""You are an expert resume writer.
-Extract and structure the candidate's information into the JSON schema below.
+        DATA_RULES = """\
+⚠️ RULES:
+- Use ONLY data from CANDIDATE DETAILS. Never invent anything.
+- Omit fields not present (use null / empty list).
+- Dates: "Mon YYYY" format (e.g. "Aug 2023") or "Present"."""
 
-⚠️ STRICT DATA RULES:
-- Use ONLY information explicitly stated in CANDIDATE DETAILS. Do NOT invent anything.
-- Omit any field not present (use null or empty list).
-- Dates: use "Mon YYYY" format (e.g. "Nov 2025") or "Present".
-- Experience/project bullets: each bullet must be 12–25 words. Use **text** for keywords and metrics.
-  Keep bullets concise but impactful. Do NOT pad unnecessarily.
-- Limit experience bullets to MAX 5 per role; project bullets to MAX 4 per project.
-- Skills: categorise accurately into languages, frameworks, databases, cloud_devops, tools.
-- Hobbies, activities, achievements: omit entirely — not needed in the JSON output.
+        # ── Chunk A: header + education + skills + certs + awards ────────────
+        schema_a = """{
+  "name": "string",
+  "phone": "string | null",
+  "email": "string | null",
+  "linkedin_url": "string | null",
+  "github_url": "string | null",
+  "portfolio_url": "string | null",
+  "education": [{"university":"","degree":"","gpa":"","city":"","start":"","end":""}],
+  "skills": {"languages":[],"frameworks":[],"databases":[],"cloud_devops":[],"tools":[]},
+  "certifications": [{"name":"","issuer":"","description":""}],
+  "awards": [{"name":"","description":""}]
+}"""
+        prompt_a = f"""You are a resume data extractor.
+From CANDIDATE DETAILS extract personal info, education, skills, certifications, and awards.
+{DATA_RULES}
+- Skills: categorise into languages, frameworks, databases, cloud_devops, tools.
+- Hobbies and activities: OMIT entirely.
 
-JSON SCHEMA (output must match exactly):
-{schema}
+OUTPUT JSON matching this schema exactly:
+{schema_a}
 
---- CANDIDATE DETAILS START ---
-{user_details_text}
---- CANDIDATE DETAILS END ---
-{extra}
-Return ONLY valid JSON. No explanation, no markdown fences."""
+{src}{extra}
+Return ONLY valid JSON."""
 
-        try:
-            response = self.client.models.generate_content(
-                model=self.JSON_MODEL,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.2,
-                    response_mime_type="application/json",
-                    max_output_tokens=8192,
-                ),
-            )
-            raw = response.text
-            # Strip markdown fences if present
-            if raw.strip().startswith("```"):
-                raw = "\n".join(
-                    line for line in raw.splitlines()
-                    if not line.strip().startswith("```")
-                )
-            data = _json.loads(raw)
-            return True, data, "Resume JSON generated successfully."
-        except _json.JSONDecodeError as exc:
-            logger.error(f"generate_resume_json JSON parse error: {exc}")
-            logger.error(f"Raw response (first 500 chars): {response.text[:500] if 'response' in dir() else 'N/A'}")
-            return False, {}, f"Error generating resume JSON: {exc}"
-        except Exception as exc:
-            logger.error(f"generate_resume_json error: {exc}")
-            return False, {}, f"Error generating resume JSON: {exc}"
+        # ── Chunk B: work experience ─────────────────────────────────────────
+        schema_b = """{
+  "experience": [
+    {
+      "title": "",
+      "company": "",
+      "city": "",
+      "country": "",
+      "start": "",
+      "end": "",
+      "bullets": ["12–20 word bullet using **bold** for key tools/metrics"]
+    }
+  ]
+}"""
+        prompt_b = f"""You are a resume data extractor.
+From CANDIDATE DETAILS extract ALL work experience entries.
+{DATA_RULES}
+- Each bullet: 12–20 words. Wrap technologies, tools, and metrics in **bold**.
+- MAX 5 bullets per role. Keep them concise and impact-focused.
+- ONLY work experience — do NOT include projects.
+
+OUTPUT JSON matching this schema exactly:
+{schema_b}
+
+{src}{extra}
+Return ONLY valid JSON."""
+
+        # ── Chunk C: projects ─────────────────────────────────────────────────
+        schema_c = """{
+  "projects": [
+    {
+      "name": "",
+      "tech_stack": ["list", "of", "technologies"],
+      "bullets": ["12–20 word bullet using **bold** for key tools/metrics"]
+    }
+  ]
+}"""
+        prompt_c = f"""You are a resume data extractor.
+From CANDIDATE DETAILS extract ALL project entries.
+{DATA_RULES}
+- Each bullet: 12–20 words. Wrap technologies and tools in **bold**.
+- MAX 4 bullets per project.
+- ONLY projects — do NOT include work experience.
+
+OUTPUT JSON matching this schema exactly:
+{schema_c}
+
+{src}{extra}
+Return ONLY valid JSON."""
+
+        # ── Call all three chunks ─────────────────────────────────────────────
+        ok_a, data_a, msg_a = self._call_gemini_json(prompt_a)
+        if not ok_a:
+            return False, {}, f"Chunk A (header/education/skills) failed: {msg_a}"
+
+        ok_b, data_b, msg_b = self._call_gemini_json(prompt_b)
+        if not ok_b:
+            return False, {}, f"Chunk B (experience) failed: {msg_b}"
+
+        ok_c, data_c, msg_c = self._call_gemini_json(prompt_c)
+        if not ok_c:
+            return False, {}, f"Chunk C (projects) failed: {msg_c}"
+
+        # ── Merge ─────────────────────────────────────────────────────────────
+        merged = {
+            **data_a,
+            "experience": data_b.get("experience", []),
+            "projects":   data_c.get("projects", []),
+        }
+        return True, merged, "Resume JSON generated successfully (chunked)."
 
     def generate_tailored_json(
         self,
@@ -712,77 +789,117 @@ Return ONLY valid JSON. No explanation, no markdown fences."""
         custom_prompt: Optional[str] = None,
     ) -> Tuple[bool, dict, str]:
         """
-        [v2]  AI → structured JSON tailored to a JD.  No LaTeX is generated here.
+        [v2]  Chunked AI → structured JSON tailored to a JD.
 
-        Gemini takes the candidate's resume + JD requirements and produces a
-        ResumeData-compatible dict with bullets re-ordered and keywords bolded.
-        The caller passes this to LatexRenderer.render_from_dict().
-
-        Returns (success, resume_dict, message).
+        Same chunked strategy as generate_resume_json but with tailoring rules:
+          Chunk A — header + education + skills (JD keywords injected into skills)
+          Chunk B — work experience (bullets reordered + JD keywords bolded)
+          Chunk C — projects (JD-relevant tech woven in)
         """
         if not self.is_available():
             return False, {}, "Gemini API key not configured."
 
-        import json as _json
-        from app.render_latex import ResumeData
-
-        schema     = _json.dumps(ResumeData.model_json_schema(), indent=2)
         jd_context = self._build_jd_context(jd_requirements)
         extra = f"\n\nAdditional instructions: {custom_prompt}" if custom_prompt else ""
+        src   = f"--- CANDIDATE RESUME ---\n{resume_text}\n--- END RESUME ---"
+        jd    = f"--- JOB REQUIREMENTS ---\n{jd_context}\n--- END JOB REQUIREMENTS ---"
 
-        prompt = f"""You are an expert resume writer and ATS specialist.
-Extract the candidate's information from their resume and tailor it to the job requirements.
-Output ONLY a JSON object matching the schema below.
-
+        DATA_RULES = """\
 ⚠️ DATA RULES:
-- Use ONLY information from CANDIDATE RESUME. Do NOT invent anything.
-- Omit fields not present in the resume.
+- Use ONLY data from CANDIDATE RESUME. Never invent experience.
+- Omit fields not present (use null / empty list).
+- Dates: "Mon YYYY" or "Present"."""
 
+        TAILOR_RULES = """\
 ⚠️ TAILORING RULES:
-- Re-order bullets to place the most JD-relevant ones first.
-- Use **text** to bold technologies, tools, and skills that appear in the JD wherever they naturally fit.
-- Weave JD keywords into bullets only where they genuinely apply — never fabricate experience.
-- Ensure JD key technologies appear in the skills section if the candidate plausibly has them.
-- Every bullet must be at LEAST 12 words. Expand short bullets with relevant JD context.
+- Use **text** to bold JD-relevant technologies, tools, and metrics.
+- Weave JD keywords naturally — never fabricate experience."""
 
-JSON SCHEMA (output must match exactly):
-{schema}
+        # ── Chunk A ──────────────────────────────────────────────────────────
+        schema_a = """{
+  "name": "","phone": null,"email": null,"linkedin_url": null,
+  "github_url": null,"portfolio_url": null,
+  "education": [{"university":"","degree":"","gpa":"","city":"","start":"","end":""}],
+  "skills": {"languages":[],"frameworks":[],"databases":[],"cloud_devops":[],"tools":[]},
+  "certifications": [{"name":"","issuer":"","description":""}],
+  "awards": [{"name":"","description":""}]
+}"""
+        prompt_a = f"""You are a resume writer and ATS specialist.
+Extract personal info, education, skills, certifications from the candidate's resume.
+{DATA_RULES}
+{TAILOR_RULES}
+- Skills: ensure ALL key technologies from the JD appear if the candidate plausibly has them.
 
---- CANDIDATE RESUME ---
-{resume_text}
---- END RESUME ---
+OUTPUT JSON matching this schema:
+{schema_a}
 
---- JOB REQUIREMENTS ---
-{jd_context}
---- END JOB REQUIREMENTS ---
-{extra}
-Return ONLY valid JSON. No explanation, no markdown fences."""
+{src}
+{jd}{extra}
+Return ONLY valid JSON."""
 
-        try:
-            response = self.client.models.generate_content(
-                model=self.JSON_MODEL,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.2,
-                    response_mime_type="application/json",
-                    max_output_tokens=8192,
-                ),
-            )
-            raw = response.text
-            if raw.strip().startswith("```"):
-                raw = "\n".join(
-                    line for line in raw.splitlines()
-                    if not line.strip().startswith("```")
-                )
-            data = _json.loads(raw)
-            return True, data, "Tailored resume JSON generated successfully."
-        except _json.JSONDecodeError as exc:
-            logger.error(f"generate_tailored_json JSON parse error: {exc}")
-            logger.error(f"Raw response (first 500 chars): {response.text[:500] if 'response' in dir() else 'N/A'}")
-            return False, {}, f"Error generating tailored JSON: {exc}"
-        except Exception as exc:
-            logger.error(f"generate_tailored_json error: {exc}")
-            return False, {}, f"Error generating tailored JSON: {exc}"
+        # ── Chunk B ──────────────────────────────────────────────────────────
+        schema_b = """{
+  "experience": [
+    {"title":"","company":"","city":"","country":"","start":"","end":"",
+     "bullets":["12–20 word bullet with **bold** JD keywords"]}
+  ]
+}"""
+        prompt_b = f"""You are a resume writer and ATS specialist.
+Extract and tailor ALL work experience from the candidate's resume to the job requirements.
+{DATA_RULES}
+{TAILOR_RULES}
+- Re-order bullets: most JD-relevant first.
+- Each bullet: 12–20 words. MAX 5 per role.
+- ONLY work experience — no projects.
+
+OUTPUT JSON matching this schema:
+{schema_b}
+
+{src}
+{jd}{extra}
+Return ONLY valid JSON."""
+
+        # ── Chunk C ──────────────────────────────────────────────────────────
+        schema_c = """{
+  "projects": [
+    {"name":"","tech_stack":[],"bullets":["12–20 word bullet with **bold** JD keywords"]}
+  ]
+}"""
+        prompt_c = f"""You are a resume writer and ATS specialist.
+Extract and tailor ALL projects from the candidate's resume to the job requirements.
+{DATA_RULES}
+{TAILOR_RULES}
+- Weave JD-required technologies into project descriptions where genuinely applicable.
+- Each bullet: 12–20 words. MAX 4 per project.
+- ONLY projects — no work experience.
+
+OUTPUT JSON matching this schema:
+{schema_c}
+
+{src}
+{jd}{extra}
+Return ONLY valid JSON."""
+
+        # ── Call all three chunks ─────────────────────────────────────────────
+        ok_a, data_a, msg_a = self._call_gemini_json(prompt_a)
+        if not ok_a:
+            return False, {}, f"Chunk A (header/skills) failed: {msg_a}"
+
+        ok_b, data_b, msg_b = self._call_gemini_json(prompt_b)
+        if not ok_b:
+            return False, {}, f"Chunk B (experience) failed: {msg_b}"
+
+        ok_c, data_c, msg_c = self._call_gemini_json(prompt_c)
+        if not ok_c:
+            return False, {}, f"Chunk C (projects) failed: {msg_c}"
+
+        # ── Merge ─────────────────────────────────────────────────────────────
+        merged = {
+            **data_a,
+            "experience": data_b.get("experience", []),
+            "projects":   data_c.get("projects", []),
+        }
+        return True, merged, "Tailored resume JSON generated successfully (chunked)."
 
     def highlight_matching_skills(self, latex_code: str, jd_skills: List[str]) -> str:
         """
