@@ -63,7 +63,7 @@ class CertificationItem(BaseModel):
 
 class AwardItem(BaseModel):
     name: str
-    description: str
+    description: Optional[str] = None
 
 
 class ResumeData(BaseModel):
