@@ -630,6 +630,137 @@ Return ONLY a JSON object with key "bullets" containing an array of exactly 3 st
             logger.error(f"Error enhancing bullet points: {e}")
             return False, [], f"Error enhancing bullets: {str(e)}"
 
+    # ── v2 Jinja2 pipeline methods ────────────────────────────────────────────
+
+    def generate_resume_json(
+        self,
+        user_details_text: str,
+        custom_prompt: Optional[str] = None,
+    ) -> Tuple[bool, dict, str]:
+        """
+        [v2]  AI → structured JSON only.  No LaTeX is generated here.
+
+        Gemini extracts and structures the candidate's information into a
+        ResumeData-compatible dict.  The caller then passes this to
+        LatexRenderer.render_from_dict() to get deterministic LaTeX.
+
+        Returns (success, resume_dict, message).
+        """
+        if not self.is_available():
+            return False, {}, "Gemini API key not configured."
+
+        import json as _json
+        from app.render_latex import ResumeData
+
+        schema = _json.dumps(ResumeData.model_json_schema(), indent=2)
+        extra = f"\n\nAdditional instructions: {custom_prompt}" if custom_prompt else ""
+
+        prompt = f"""You are an expert resume writer.
+Extract and structure the candidate's information into the JSON schema below.
+
+⚠️ STRICT DATA RULES:
+- Use ONLY information explicitly stated in CANDIDATE DETAILS. Do NOT invent, assume, or fill in.
+- Omit any field not present (use null or empty list).
+- Dates: use "Mon YYYY" format (e.g. "Nov 2025") or "Present".
+- For experience and project bullets: write full sentences of at LEAST 12 words each.
+  Use **text** around keywords, tools, technologies, and metrics for bold emphasis.
+  Formula: **Strong action verb** + specific task + measurable result / tool context.
+- Skills: categorise accurately into languages, frameworks, databases, cloud_devops, tools.
+
+JSON SCHEMA (output must match exactly):
+{schema}
+
+--- CANDIDATE DETAILS START ---
+{user_details_text}
+--- CANDIDATE DETAILS END ---
+{extra}
+Return ONLY valid JSON. No explanation, no markdown fences."""
+
+        try:
+            response = self.client.models.generate_content(
+                model=self.MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.2,
+                    response_mime_type="application/json",
+                    max_output_tokens=4096,
+                ),
+            )
+            data = _json.loads(response.text)
+            return True, data, "Resume JSON generated successfully."
+        except Exception as exc:
+            logger.error(f"generate_resume_json error: {exc}")
+            return False, {}, f"Error generating resume JSON: {exc}"
+
+    def generate_tailored_json(
+        self,
+        resume_text: str,
+        jd_requirements: dict,
+        custom_prompt: Optional[str] = None,
+    ) -> Tuple[bool, dict, str]:
+        """
+        [v2]  AI → structured JSON tailored to a JD.  No LaTeX is generated here.
+
+        Gemini takes the candidate's resume + JD requirements and produces a
+        ResumeData-compatible dict with bullets re-ordered and keywords bolded.
+        The caller passes this to LatexRenderer.render_from_dict().
+
+        Returns (success, resume_dict, message).
+        """
+        if not self.is_available():
+            return False, {}, "Gemini API key not configured."
+
+        import json as _json
+        from app.render_latex import ResumeData
+
+        schema     = _json.dumps(ResumeData.model_json_schema(), indent=2)
+        jd_context = self._build_jd_context(jd_requirements)
+        extra = f"\n\nAdditional instructions: {custom_prompt}" if custom_prompt else ""
+
+        prompt = f"""You are an expert resume writer and ATS specialist.
+Extract the candidate's information from their resume and tailor it to the job requirements.
+Output ONLY a JSON object matching the schema below.
+
+⚠️ DATA RULES:
+- Use ONLY information from CANDIDATE RESUME. Do NOT invent anything.
+- Omit fields not present in the resume.
+
+⚠️ TAILORING RULES:
+- Re-order bullets to place the most JD-relevant ones first.
+- Use **text** to bold technologies, tools, and skills that appear in the JD wherever they naturally fit.
+- Weave JD keywords into bullets only where they genuinely apply — never fabricate experience.
+- Ensure JD key technologies appear in the skills section if the candidate plausibly has them.
+- Every bullet must be at LEAST 12 words. Expand short bullets with relevant JD context.
+
+JSON SCHEMA (output must match exactly):
+{schema}
+
+--- CANDIDATE RESUME ---
+{resume_text}
+--- END RESUME ---
+
+--- JOB REQUIREMENTS ---
+{jd_context}
+--- END JOB REQUIREMENTS ---
+{extra}
+Return ONLY valid JSON. No explanation, no markdown fences."""
+
+        try:
+            response = self.client.models.generate_content(
+                model=self.MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.2,
+                    response_mime_type="application/json",
+                    max_output_tokens=4096,
+                ),
+            )
+            data = _json.loads(response.text)
+            return True, data, "Tailored resume JSON generated successfully."
+        except Exception as exc:
+            logger.error(f"generate_tailored_json error: {exc}")
+            return False, {}, f"Error generating tailored JSON: {exc}"
+
     def highlight_matching_skills(self, latex_code: str, jd_skills: List[str]) -> str:
         """
         Highlight skills in LaTeX that match JD requirements

@@ -15,7 +15,21 @@
       "Bash(tr:*)",
       "Bash(venv/Scripts/pip show supabase)",
       "mcp__PDF_Tools_-_Analyze__Extract__Fill__Compare__read_pdf_content",
-      "Bash(ls \"D:\\\\anup data\\\\All COmpany Projects\\\\local resume creator\\\\app\\\\static\"\" 2>/dev/null || dir \"D:anup dataAll COmpany Projectslocal resume creatorappstatic \")"
+      "Bash(ls \"D:\\\\anup data\\\\All COmpany Projects\\\\local resume creator\\\\app\\\\static\"\" 2>/dev/null || dir \"D:anup dataAll COmpany Projectslocal resume creatorappstatic \")",
+      "Bash(where docker:*)",
+      "Bash(dir \"D:\\\\anup data\\\\All COmpany Projects\\\\local resume creator\\\\output\" /b)",
+      "Bash(xargs cat:*)",
+      "Bash(python -c \":*)",
+      "Bash(timeout /t 5 /nobreak)",
+      "Bash(curl -s http://localhost:8000/api/health)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(pip install:*)",
+      "Bash(python -m pip install pydantic-settings)",
+      "Bash(python -m pip install \"fastapi[all]\" uvicorn python-multipart google-genai mcp)",
+      "Bash(python -m pip install pydantic-settings --quiet)",
+      "Bash(1 grep:*)",
+      "Bash(python3 -c \":*)",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\(''app/main.py'',encoding=''utf-8''\\).read\\(\\)\\); print\\(''Syntax OK''\\)\")"
     ]
   }
 }

@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional
 import logging
 import tempfile
 from pathlib import Path
@@ -54,13 +54,6 @@ class PDFResponse(BaseModel):
     success: bool
     message: str
     filename: Optional[str] = None
-
-
-class CustomizeResumeRequest(BaseModel):
-    jd_text: Optional[str] = None
-    user_details: Optional[Dict[str, Any]] = None
-    base_template: Optional[str] = None  # If not provided, uses default template
-    filename: str = "customized_resume"
 
 
 @app.get("/")
@@ -398,12 +391,13 @@ async def tailor_smart(
     custom_prompt: Optional[str] = Form(None),
 ):
     """
-    Smart tailor endpoint.
+    Smart tailor endpoint — v2 pipeline (Jinja2 + LaTeX).
 
     Priority order for resume source:
-    1. Saved LaTeX source for user (resume_{user_id}.tex) — best quality
-    2. Uploaded resume_file (PDF / DOCX / image)
-    3. Typed resume_text
+    1. Saved JSON from v2 create (resume_{user_id}.json)
+    2. Saved LaTeX source (resume_{user_id}.tex)
+    3. Uploaded resume_file (PDF / DOCX / image)
+    4. Typed resume_text
 
     The resume is tailored to the provided job description and returned as a PDF.
     """
@@ -413,6 +407,9 @@ async def tailor_smart(
             detail="AI not available. Please set GEMINI_API_KEY environment variable."
         )
 
+    import json as _json
+
+    renderer = _get_renderer()
     clean_user_id = user_id.strip()
     output_filename = ((filename or f"tailored_{clean_user_id}").strip())
     if output_filename.endswith(".pdf"):
@@ -422,18 +419,27 @@ async def tailor_smart(
     requirements = document_parser.extract_jd_requirements(jd_text)
     requirements = resume_customizer.analyze_jd(jd_text, requirements)
 
-    # ── 1. Existing LaTeX source (best quality) ──────────────────────────────
-    existing_latex = latex_processor.get_latex_source(f"resume_{clean_user_id}")
-    if existing_latex:
-        logger.info(f"Using saved LaTeX source for user {clean_user_id}")
-        success, tailored_latex, msg = resume_customizer.customize_resume(
-            existing_latex, requirements, custom_prompt=custom_prompt
-        )
-        if not success:
-            raise HTTPException(status_code=500, detail=msg)
+    # ── Determine resume source text ─────────────────────────────────────────
+    effective_resume_text = None
 
-    # ── 2. Uploaded file ─────────────────────────────────────────────────────
-    elif resume_file:
+    # 1. Saved JSON from v2 create (best quality — structured data)
+    json_path = settings.output_dir / f"resume_{clean_user_id}.json"
+    if json_path.exists():
+        try:
+            effective_resume_text = json_path.read_text(encoding="utf-8")
+            logger.info(f"Using saved JSON for user {clean_user_id}")
+        except Exception:
+            pass
+
+    # 2. Saved LaTeX source
+    if not effective_resume_text:
+        existing_latex = latex_processor.get_latex_source(f"resume_{clean_user_id}")
+        if existing_latex:
+            effective_resume_text = existing_latex
+            logger.info(f"Using saved LaTeX for user {clean_user_id}")
+
+    # 3. Uploaded file
+    if not effective_resume_text and resume_file:
         suffix = Path(resume_file.filename or "resume.pdf").suffix
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp.write(await resume_file.read())
@@ -442,42 +448,43 @@ async def tailor_smart(
             ok, parsed_text, parse_msg = document_parser.parse_file(tmp_path)
             if not ok:
                 raise HTTPException(status_code=400, detail=f"Could not parse file: {parse_msg}")
+            effective_resume_text = parsed_text
+            logger.info(f"Tailoring from uploaded file for user {clean_user_id}")
         finally:
             tmp_path.unlink(missing_ok=True)
 
-        logger.info(f"Tailoring from uploaded file for user {clean_user_id}")
-        success, tailored_latex, msg = resume_customizer.create_tailored_resume_from_text(
-            parsed_text, requirements, custom_prompt=custom_prompt
-        )
-        if not success:
-            raise HTTPException(status_code=500, detail=msg)
-
-    # ── 3. Typed resume text ─────────────────────────────────────────────────
-    elif resume_text:
+    # 4. Typed text
+    if not effective_resume_text and resume_text:
+        effective_resume_text = resume_text
         logger.info(f"Tailoring from typed text for user {clean_user_id}")
-        success, tailored_latex, msg = resume_customizer.create_tailored_resume_from_text(
-            resume_text, requirements, custom_prompt=custom_prompt
-        )
-        if not success:
-            raise HTTPException(status_code=500, detail=msg)
 
-    else:
+    if not effective_resume_text:
         raise HTTPException(
             status_code=400,
             detail="No resume source found. Provide resume_file or resume_text."
         )
 
-    # Compile tailored LaTeX to PDF
-    pdf_success, _, pdf_message = latex_processor.compile_latex_to_pdf(
-        tailored_latex, output_filename
+    # ── v2 pipeline: AI → JSON → Jinja2 → LaTeX → PDF ────────────────────────
+    ok, resume_dict, msg = resume_customizer.generate_tailored_json(
+        effective_resume_text, requirements, custom_prompt
     )
-    if pdf_success:
-        return PDFResponse(
-            success=True,
-            message=pdf_message,
-            filename=f"{output_filename}.pdf"
-        )
-    raise HTTPException(status_code=500, detail=pdf_message)
+    if not ok:
+        raise HTTPException(status_code=500, detail=msg)
+
+    try:
+        json_out = settings.output_dir / f"{output_filename}.json"
+        json_out.write_text(_json.dumps(resume_dict, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception as e:
+        logger.warning(f"Could not save tailored JSON: {e}")
+
+    ok2, latex, msg2 = renderer.render_from_dict(resume_dict)
+    if not ok2:
+        raise HTTPException(status_code=500, detail=f"Template render failed: {msg2}")
+
+    pdf_ok, _, pdf_msg = latex_processor.compile_latex_to_pdf(latex, output_filename)
+    if pdf_ok:
+        return PDFResponse(success=True, message=pdf_msg, filename=f"{output_filename}.pdf")
+    raise HTTPException(status_code=500, detail=pdf_msg)
 
 
 @app.get("/api/resume-exists/{user_id}")
@@ -767,46 +774,11 @@ async def apply_smart(
     }
 
 
-class CreateResumeRequest(BaseModel):
-    user_details_text: str
-    user_id: str
-    custom_prompt: Optional[str] = None
-    filename: Optional[str] = None
-
-
 class UpdateResumeRequest(BaseModel):
     user_id: str
     update_instructions: str
     custom_prompt: Optional[str] = None
     filename: Optional[str] = None
-
-
-@app.post("/api/create-resume", response_model=PDFResponse)
-async def create_resume(request: CreateResumeRequest):
-    """
-    Create a brand-new resume from scratch using free-form user details + optional AI prompt.
-    Saves the LaTeX source so future /tailor-smart calls can use it.
-    """
-    if not resume_customizer.is_available():
-        raise HTTPException(status_code=503, detail="AI not available. Set GEMINI_API_KEY.")
-
-    clean_uid = request.user_id.strip()
-    # ALWAYS use resume_{uid} as storage key — ensures get_latex_source() works for tailor/update.
-    # The display filename (user's real name) is set by the bot when sending the document.
-    output_filename = f"resume_{clean_uid}"
-
-    success, latex, message = resume_customizer.create_resume_from_scratch(
-        user_details_text=request.user_details_text,
-        custom_prompt=request.custom_prompt,
-    )
-    if not success:
-        raise HTTPException(status_code=500, detail=message)
-
-    # compile_latex_to_pdf() auto-saves the .tex source at output_dir/{output_filename}.tex
-    pdf_success, _, pdf_message = latex_processor.compile_latex_to_pdf(latex, output_filename)
-    if pdf_success:
-        return PDFResponse(success=True, message=pdf_message, filename=f"{output_filename}.pdf")
-    raise HTTPException(status_code=500, detail=pdf_message)
 
 
 @app.post("/api/update-resume", response_model=PDFResponse)
@@ -896,6 +868,125 @@ async def gmail_search(
         raise HTTPException(status_code=500, detail=err)
 
     return {"success": True, "messages": messages, "count": len(messages), "query": q}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# v2  —  Jinja2 + LaTeX pipeline
+#   AI produces clean JSON  →  Jinja2 template renders LaTeX  →  pdflatex → PDF
+#   Zero chance of wrong packages, missing \end{itemize}, or spacing bugs.
+# ══════════════════════════════════════════════════════════════════════════════
+
+class CreateResumeV2Request(BaseModel):
+    user_details_text: str
+    user_id: str
+    custom_prompt: Optional[str] = None
+
+
+class TailorResumeV2Request(BaseModel):
+    resume_text: str
+    jd_text: str
+    user_id: str
+    custom_prompt: Optional[str] = None
+
+
+def _get_renderer():
+    """Lazy-load LatexRenderer (avoids circular import at module level)."""
+    from app.render_latex import LatexRenderer
+    return LatexRenderer(settings.templates_dir)
+
+
+@app.post("/api/v2/create-resume", response_model=PDFResponse)
+async def create_resume_v2(request: CreateResumeV2Request):
+    """
+    [v2]  Create a resume using the Jinja2+LaTeX pipeline.
+
+    Steps:
+      1.  Gemini generates structured JSON from free-form user details.
+      2.  Jinja2 renders the JSON into deterministic LaTeX (resume.tex.j2).
+      3.  pdflatex compiles LaTeX → PDF.
+
+    The JSON is also saved as  output/resume_{user_id}.json  for inspection.
+    """
+    if not resume_customizer.is_available():
+        raise HTTPException(status_code=503, detail="AI not available. Set GEMINI_API_KEY.")
+
+    renderer     = _get_renderer()
+    clean_uid    = request.user_id.strip()
+    out_filename = f"resume_{clean_uid}"
+
+    # 1 — AI → JSON
+    ok, resume_dict, msg = resume_customizer.generate_resume_json(
+        request.user_details_text, request.custom_prompt
+    )
+    if not ok:
+        raise HTTPException(status_code=500, detail=msg)
+
+    # Save JSON for debugging / inspection
+    try:
+        import json as _json
+        json_path = settings.output_dir / f"{out_filename}.json"
+        json_path.write_text(_json.dumps(resume_dict, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception as e:
+        logger.warning(f"Could not save JSON file: {e}")
+
+    # 2 — JSON → LaTeX
+    ok2, latex, msg2 = renderer.render_from_dict(resume_dict)
+    if not ok2:
+        raise HTTPException(status_code=500, detail=f"Template render failed: {msg2}")
+
+    # 3 — LaTeX → PDF
+    pdf_ok, _, pdf_msg = latex_processor.compile_latex_to_pdf(latex, out_filename)
+    if pdf_ok:
+        return PDFResponse(success=True, message=pdf_msg, filename=f"{out_filename}.pdf")
+    raise HTTPException(status_code=500, detail=pdf_msg)
+
+
+@app.post("/api/v2/tailor-resume", response_model=PDFResponse)
+async def tailor_resume_v2(request: TailorResumeV2Request):
+    """
+    [v2]  Tailor an existing resume to a JD using the Jinja2+LaTeX pipeline.
+
+    Steps:
+      1.  Gemini generates tailored JSON from resume text + JD requirements.
+      2.  Jinja2 renders the JSON into deterministic LaTeX (resume.tex.j2).
+      3.  pdflatex compiles LaTeX → PDF.
+    """
+    if not resume_customizer.is_available():
+        raise HTTPException(status_code=503, detail="AI not available. Set GEMINI_API_KEY.")
+
+    renderer     = _get_renderer()
+    clean_uid    = request.user_id.strip()
+    out_filename = f"tailored_{clean_uid}"
+
+    # Extract + enhance JD requirements
+    requirements = document_parser.extract_jd_requirements(request.jd_text)
+    requirements = resume_customizer.analyze_jd(request.jd_text, requirements)
+
+    # 1 — AI → tailored JSON
+    ok, resume_dict, msg = resume_customizer.generate_tailored_json(
+        request.resume_text, requirements, request.custom_prompt
+    )
+    if not ok:
+        raise HTTPException(status_code=500, detail=msg)
+
+    # Save JSON for debugging / inspection
+    try:
+        import json as _json
+        json_path = settings.output_dir / f"{out_filename}.json"
+        json_path.write_text(_json.dumps(resume_dict, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception as e:
+        logger.warning(f"Could not save JSON file: {e}")
+
+    # 2 — JSON → LaTeX
+    ok2, latex, msg2 = renderer.render_from_dict(resume_dict)
+    if not ok2:
+        raise HTTPException(status_code=500, detail=f"Template render failed: {msg2}")
+
+    # 3 — LaTeX → PDF
+    pdf_ok, _, pdf_msg = latex_processor.compile_latex_to_pdf(latex, out_filename)
+    if pdf_ok:
+        return PDFResponse(success=True, message=pdf_msg, filename=f"{out_filename}.pdf")
+    raise HTTPException(status_code=500, detail=pdf_msg)
 
 
 if __name__ == "__main__":

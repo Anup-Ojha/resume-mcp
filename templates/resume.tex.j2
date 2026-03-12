@@ -1,0 +1,135 @@
+\documentclass[a4paper,11pt]{article}
+\usepackage{mathptmx}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{multicol}
+\usepackage{microtype}
+% Page style
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+% Margins
+\addtolength{\oddsidemargin}{-0.55in}
+\addtolength{\evensidemargin}{-0.55in}
+\addtolength{\textwidth}{1.1in}
+\addtolength{\topmargin}{-0.55in}
+\addtolength{\textheight}{1.1in}
+\urlstyle{same}
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+% Section formatting
+\titlespacing*{\section}{0pt}{*0.7}{*0.4}
+\titleformat{\section}{
+  \scshape\raggedright\large\bfseries
+}{}{0em}{}[\titlerule]
+% Itemize formatting
+\setlist[itemize]{noitemsep, topsep=3pt, leftmargin=1.5em, label=--}
+\setlist[itemize,2]{label=$\diamond$, leftmargin=1.5em}
+\begin{document}
+% ── HEADER ────────────────────────────────────────────────────────────────────
+\begin{center}
+    {\LARGE \bfseries (( data.name | e ))} \\[2pt]
+    \small
+(* if data.phone *)
+    (( data.phone | e )) ~
+(* endif *)
+(* if data.email *)
+    \href{mailto:(( data.email ))}{(( data.email | e ))} ~
+(* endif *)
+(* if data.linkedin_url *)
+    \href{(( data.linkedin_url ))}{LinkedIn} ~
+(* endif *)
+(* if data.github_url *)
+    \href{(( data.github_url ))}{GitHub} ~
+(* endif *)
+(* if data.portfolio_url *)
+    \href{(( data.portfolio_url ))}{Portfolio}
+(* endif *)
+\end{center}
+\vspace{-6pt}
+(* if data.education *)
+% ── EDUCATION ─────────────────────────────────────────────────────────────────
+\section{Education}
+\begin{itemize}
+(* for edu in data.education *)
+    \item \textbf{(( edu.university | e ))} \hfill (( edu.start | e )) -- (( edu.end | e )) \\
+    (( edu.degree | e ))(* if edu.gpa *) (GPA: (( edu.gpa | e )))(* endif *)(* if edu.city *) --- (( edu.city | e ))(* endif *)
+(* endfor *)
+\end{itemize}
+(* endif *)
+(* if data.experience *)
+% ── EXPERIENCE ────────────────────────────────────────────────────────────────
+\section{Experience}
+\begin{itemize}
+(* for exp in data.experience *)
+\item \textbf{(( exp.title | e )) --- (( exp.company | e ))} \hfill (( exp.start | e )) -- (( exp.end | e )) \\
+(* if exp.city and exp.country *)(( exp.city | e )), (( exp.country | e ))(* elif exp.city *)(( exp.city | e ))(* elif exp.country *)(( exp.country | e ))(* endif *)
+\begin{itemize}
+(* for bullet in exp.bullets *)
+    \item (( bullet | t ))
+(* endfor *)
+\end{itemize}
+(* endfor *)
+\end{itemize}
+(* endif *)
+(* if data.projects *)
+% ── PROJECTS ──────────────────────────────────────────────────────────────────
+\section{Projects}
+\begin{itemize}
+(* for proj in data.projects *)
+    \item \textbf{(( proj.name | e ))} \\
+    \textit{(( proj.tech_stack | join_e ))}
+    \begin{itemize}
+(* for bullet in proj.bullets *)
+        \item (( bullet | t ))
+(* endfor *)
+    \end{itemize}
+(* endfor *)
+\end{itemize}
+(* endif *)
+(* if data.skills *)
+% ── TECHNICAL SKILLS ──────────────────────────────────────────────────────────
+\section{Technical Skills}
+\begin{itemize}
+(* if data.skills.languages *)
+    \item \textbf{Languages:} (( data.skills.languages | join_e ))
+(* endif *)
+(* if data.skills.frameworks *)
+    \item \textbf{Frameworks \& Libraries:} (( data.skills.frameworks | join_e ))
+(* endif *)
+(* if data.skills.databases *)
+    \item \textbf{Databases:} (( data.skills.databases | join_e ))
+(* endif *)
+(* if data.skills.cloud_devops *)
+    \item \textbf{Cloud \& DevOps:} (( data.skills.cloud_devops | join_e ))
+(* endif *)
+(* if data.skills.tools *)
+    \item \textbf{Tools:} (( data.skills.tools | join_e ))
+(* endif *)
+\end{itemize}
+(* endif *)
+(* if data.certifications *)
+% ── CERTIFICATIONS ────────────────────────────────────────────────────────────
+\section{Certifications}
+\begin{itemize}
+(* for cert in data.certifications *)
+    \item \textbf{(( cert.name | e ))} --- (( cert.issuer | e ))(* if cert.description *): (( cert.description | e ))(* endif *)
+(* endfor *)
+\end{itemize}
+(* endif *)
+(* if data.awards *)
+% ── AWARDS & ACHIEVEMENTS ─────────────────────────────────────────────────────
+\section{Awards \& Achievements}
+\begin{itemize}
+(* for award in data.awards *)
+    \item \textbf{(( award.name | e ))}: (( award.description | t ))
+(* endfor *)
+\end{itemize}
+(* endif *)
+\end{document}

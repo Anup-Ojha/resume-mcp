@@ -74,22 +74,42 @@ def _user_filename(user) -> str:
     return name if name else f"resume_{user.id}"
 
 
-def create_resume_from_scratch(
+def create_resume_v2(
     user_details_text: str,
     user_id: str,
-    filename: str = None,
     custom_prompt: str = None,
 ) -> dict:
-    """Call /api/create-resume."""
+    """
+    [v2]  Jinja2 + LaTeX pipeline.
+    Gemini → JSON  →  Jinja2 template → LaTeX  →  /api/generate → PDF.
+    No hallucinated packages, no broken LaTeX from the AI.
+    """
     payload = {
         "user_details_text": user_details_text,
         "user_id": user_id,
     }
-    if filename:
-        payload["filename"] = filename
     if custom_prompt:
         payload["custom_prompt"] = custom_prompt
-    return _post("/api/create-resume", json=payload, timeout=120)
+    return _post("/api/v2/create-resume", json=payload, timeout=150)
+
+
+def parse_file_to_text(file_bytes: bytes, file_name: str) -> tuple:
+    """
+    Upload a file to /api/parse-jd and return (success, extracted_text, message).
+    Used so file-based /create can feed the v2 pipeline which expects plain text.
+    """
+    try:
+        resp = requests.post(
+            f"{RESUME_API_URL}/api/parse-jd",
+            files={"jd_file": (file_name, file_bytes)},
+            timeout=60,
+        )
+        data = resp.json()
+        if data.get("success"):
+            return True, data.get("extracted_text", ""), "Parsed OK"
+        return False, "", data.get("message", "Parse failed")
+    except Exception as e:
+        return False, "", str(e)
 
 
 def update_resume(
@@ -455,43 +475,46 @@ async def create_got_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def _do_create(msg_obj, context: ContextTypes.DEFAULT_TYPE):
-    """Actually call the API to create the resume."""
+    """
+    [v2]  Create resume using the Jinja2 + LaTeX pipeline.
+    Flow: user text (or parsed file)  →  Gemini JSON  →  Jinja2 LaTeX  →  /api/generate  →  PDF
+    """
     details_text  = context.user_data.get("create_details_text", "")
     file_bytes    = context.user_data.get("create_file_bytes")
     file_name     = context.user_data.get("create_file_name", "resume.pdf")
     custom_prompt = context.user_data.get("custom_prompt")
     user_id       = context.user_data.get("create_user_id", "")
+    display_base  = context.user_data.get("create_filename") or f"resume_{user_id}"
 
     await msg_obj.reply_text(
-        "⚙️ Creating your resume… this may take up to 90 seconds."
+        "⚙️ Creating your resume… this may take up to 90 seconds.\n"
+        "_Step 1/3: Structuring your details with AI…_",
+        parse_mode="Markdown"
     )
 
-    # Display name for the PDF sent to the user (e.g. "Anup_Ojha_Resume.pdf")
-    display_base = context.user_data.get("create_filename") or f"resume_{user_id}"
-
-    # If file was provided, parse it via tailor-smart with a "build new resume" JD hint.
-    # API always stores as resume_{uid} internally — no filename passed from bot.
+    # ── If a file was uploaded, parse it to plain text first ─────────────────
     if file_bytes and not details_text:
-        result = tailor_smart(
-            jd_text="Create a complete professional resume. This is not a job tailoring — just rebuild the resume professionally.",
-            user_id=user_id,
-            resume_file_bytes=file_bytes,
-            resume_file_name=file_name,
-            custom_prompt=custom_prompt,
-        )
-    else:
-        result = create_resume_from_scratch(
-            user_details_text=details_text,
-            user_id=user_id,
-            # No filename passed — API always saves as resume_{uid} for future tailor/update
-            custom_prompt=custom_prompt,
-        )
+        ok, parsed_text, parse_msg = parse_file_to_text(file_bytes, file_name)
+        if not ok or not parsed_text.strip():
+            await msg_obj.reply_text(
+                f"❌ Couldn't read your file: {parse_msg}\n\n"
+                "Please try again by sending your details as text instead."
+            )
+            return ConversationHandler.END
+        details_text = parsed_text
+
+    # ── v2: Gemini → JSON → Jinja2 LaTeX → /api/generate → PDF ──────────────
+    result = create_resume_v2(
+        user_details_text=details_text,
+        user_id=user_id,
+        custom_prompt=custom_prompt,
+    )
 
     if result.get("success"):
         pdf_filename = result.get("filename", f"resume_{user_id}.pdf")
-        pdf_bytes, err = fetch_pdf_bytes(pdf_filename)
-        if pdf_bytes:
-            bio = BytesIO(pdf_bytes)
+        pdf_bytes_data, err = fetch_pdf_bytes(pdf_filename)
+        if pdf_bytes_data:
+            bio = BytesIO(pdf_bytes_data)
             display_name = f"{display_base}_Resume.pdf"
             await msg_obj.reply_document(
                 document=bio,
@@ -506,7 +529,9 @@ async def _do_create(msg_obj, context: ContextTypes.DEFAULT_TYPE):
                 "• Use /apply to send it directly via email"
             )
         else:
-            await msg_obj.reply_text(f"⚠️ PDF generated but couldn't be delivered.\nFilename: {pdf_filename}")
+            await msg_obj.reply_text(
+                f"⚠️ PDF generated but couldn't be delivered.\nFilename: {pdf_filename}"
+            )
     else:
         err = result.get("message", result.get("detail", "Unknown error"))
         await msg_obj.reply_text(f"❌ {err}\n\nCheck /status for API health.")
