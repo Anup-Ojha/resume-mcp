@@ -9,6 +9,7 @@
 \usepackage{enumitem}
 \usepackage{multicol}
 \usepackage{microtype}
+\usepackage{needspace}
 % Page style
 \pagestyle{fancy}
 \fancyhf{}
@@ -55,6 +56,7 @@
 \vspace{-6pt}
 (* if data.education *)
 % ── EDUCATION ─────────────────────────────────────────────────────────────────
+\needspace{4\baselineskip}
 \section{Education}
 \begin{itemize}
 (* for edu in data.education *)
@@ -65,11 +67,13 @@
 (* endif *)
 (* if data.experience *)
 % ── EXPERIENCE ────────────────────────────────────────────────────────────────
+\needspace{4\baselineskip}
 \section{Experience}
 \begin{itemize}
 (* for exp in data.experience *)
 \item \textbf{(( exp.title | e )) --- (( exp.company | e ))} \hfill (( exp.start | e )) -- (( exp.end | e )) \\
 (* if exp.city and exp.country *)(( exp.city | e )), (( exp.country | e ))(* elif exp.city *)(( exp.city | e ))(* elif exp.country *)(( exp.country | e ))(* endif *)
+\nopagebreak[4]
 \begin{itemize}
 (* for bullet in exp.bullets *)
     \item (( bullet | t ))
@@ -80,11 +84,13 @@
 (* endif *)
 (* if data.projects *)
 % ── PROJECTS ──────────────────────────────────────────────────────────────────
+\needspace{4\baselineskip}
 \section{Projects}
 \begin{itemize}
 (* for proj in data.projects *)
     \item \textbf{(( proj.name | e ))} \\
     \textit{(( proj.tech_stack | join_e ))}
+    \nopagebreak[4]
     \begin{itemize}
 (* for bullet in proj.bullets *)
         \item (( bullet | t ))
@@ -95,6 +101,7 @@
 (* endif *)
 (* if data.skills *)
 % ── TECHNICAL SKILLS ──────────────────────────────────────────────────────────
+\needspace{4\baselineskip}
 \section{Technical Skills}
 \begin{itemize}
 (* if data.skills.languages *)
@@ -116,6 +123,7 @@
 (* endif *)
 (* if data.certifications *)
 % ── CERTIFICATIONS ────────────────────────────────────────────────────────────
+\needspace{4\baselineskip}
 \section{Certifications}
 \begin{itemize}
 (* for cert in data.certifications *)
@@ -125,6 +133,7 @@
 (* endif *)
 (* if data.awards *)
 % ── AWARDS & ACHIEVEMENTS ─────────────────────────────────────────────────────
+\needspace{4\baselineskip}
 \section{Awards \& Achievements}
 \begin{itemize}
 (* for award in data.awards *)
