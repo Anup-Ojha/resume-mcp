@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 class ResumeCustomizer:
     """AI-powered resume customization based on job descriptions using Google Gemini"""
     
-    MODEL = "gemini-2.0-flash"
+    MODEL      = "gemini-2.0-flash"         # fast model for simple tasks
+    JSON_MODEL = "gemini-2.5-pro-preview-06-05"  # pro model for structured JSON generation
 
     def __init__(self):
         from app.config import settings
@@ -659,13 +660,14 @@ Return ONLY a JSON object with key "bullets" containing an array of exactly 3 st
 Extract and structure the candidate's information into the JSON schema below.
 
 ⚠️ STRICT DATA RULES:
-- Use ONLY information explicitly stated in CANDIDATE DETAILS. Do NOT invent, assume, or fill in.
+- Use ONLY information explicitly stated in CANDIDATE DETAILS. Do NOT invent anything.
 - Omit any field not present (use null or empty list).
 - Dates: use "Mon YYYY" format (e.g. "Nov 2025") or "Present".
-- For experience and project bullets: write full sentences of at LEAST 12 words each.
-  Use **text** around keywords, tools, technologies, and metrics for bold emphasis.
-  Formula: **Strong action verb** + specific task + measurable result / tool context.
+- Experience/project bullets: each bullet must be 12–25 words. Use **text** for keywords and metrics.
+  Keep bullets concise but impactful. Do NOT pad unnecessarily.
+- Limit experience bullets to MAX 5 per role; project bullets to MAX 4 per project.
 - Skills: categorise accurately into languages, frameworks, databases, cloud_devops, tools.
+- Hobbies, activities, achievements: omit entirely — not needed in the JSON output.
 
 JSON SCHEMA (output must match exactly):
 {schema}
@@ -678,16 +680,27 @@ Return ONLY valid JSON. No explanation, no markdown fences."""
 
         try:
             response = self.client.models.generate_content(
-                model=self.MODEL,
+                model=self.JSON_MODEL,
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.2,
                     response_mime_type="application/json",
-                    max_output_tokens=4096,
+                    max_output_tokens=8192,
                 ),
             )
-            data = _json.loads(response.text)
+            raw = response.text
+            # Strip markdown fences if present
+            if raw.strip().startswith("```"):
+                raw = "\n".join(
+                    line for line in raw.splitlines()
+                    if not line.strip().startswith("```")
+                )
+            data = _json.loads(raw)
             return True, data, "Resume JSON generated successfully."
+        except _json.JSONDecodeError as exc:
+            logger.error(f"generate_resume_json JSON parse error: {exc}")
+            logger.error(f"Raw response (first 500 chars): {response.text[:500] if 'response' in dir() else 'N/A'}")
+            return False, {}, f"Error generating resume JSON: {exc}"
         except Exception as exc:
             logger.error(f"generate_resume_json error: {exc}")
             return False, {}, f"Error generating resume JSON: {exc}"
@@ -747,16 +760,26 @@ Return ONLY valid JSON. No explanation, no markdown fences."""
 
         try:
             response = self.client.models.generate_content(
-                model=self.MODEL,
+                model=self.JSON_MODEL,
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.2,
                     response_mime_type="application/json",
-                    max_output_tokens=4096,
+                    max_output_tokens=8192,
                 ),
             )
-            data = _json.loads(response.text)
+            raw = response.text
+            if raw.strip().startswith("```"):
+                raw = "\n".join(
+                    line for line in raw.splitlines()
+                    if not line.strip().startswith("```")
+                )
+            data = _json.loads(raw)
             return True, data, "Tailored resume JSON generated successfully."
+        except _json.JSONDecodeError as exc:
+            logger.error(f"generate_tailored_json JSON parse error: {exc}")
+            logger.error(f"Raw response (first 500 chars): {response.text[:500] if 'response' in dir() else 'N/A'}")
+            return False, {}, f"Error generating tailored JSON: {exc}"
         except Exception as exc:
             logger.error(f"generate_tailored_json error: {exc}")
             return False, {}, f"Error generating tailored JSON: {exc}"
