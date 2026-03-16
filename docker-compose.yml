@@ -1,45 +1,110 @@
 version: '3.8'
 
 services:
+
+  # ── PostgreSQL database ──────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: resumebot_db
+    restart: always
+    environment:
+      POSTGRES_DB:       resumebot
+      POSTGRES_USER:     resumebot
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"   # private to VM — never exposed to internet
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resumebot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Adminer — web DB management UI ──────────────────────────────────────────
+  # Access via SSH tunnel: ssh -L 8080:localhost:8080 user@your-gcp-vm
+  # Then open: http://localhost:8080
+  # Server: postgres | User: resumebot | Password: $DB_PASSWORD | DB: resumebot
+  adminer:
+    image: adminer:latest
+    container_name: resumebot_adminer
+    restart: always
+    ports:
+      - "127.0.0.1:8080:8080"   # SSH tunnel only — not public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ── FastAPI resume generator ─────────────────────────────────────────────────
   resume-generator:
     build:
       context: .
       dockerfile: Dockerfile.resume
-    container_name: local-resume-creator
+    container_name: resumebot_api
     ports:
       - "8000:8000"
     volumes:
       - ./output:/app/output
       - ./templates:/app/templates
+      - ./static:/app/static
     environment:
       - DEBUG=False
       - APP_NAME=LaTeX Resume Generator
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - DATABASE_URL=postgresql+asyncpg://resumebot:${DB_PASSWORD:-changeme}@postgres:5432/resumebot
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - PUBLIC_API_URL=${PUBLIC_API_URL}
+      - WEBAPP_URL=${WEBAPP_URL:-http://localhost:8000/webapp/}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: always
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
+  # ── Telegram bot ─────────────────────────────────────────────────────────────
   telegram-bot:
     build:
       context: .
       dockerfile: Dockerfile.telegram
-    container_name: resume-telegram-bot
+    container_name: resumebot_bot
     depends_on:
       resume-generator:
         condition: service_healthy
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - RESUME_API_URL=http://resume-generator:8000
+      - WEBAPP_URL=${WEBAPP_URL:-http://localhost:8000/webapp/}
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   default:
     name: resume-network
+
+volumes:
+  postgres_data:    # survives container restarts and docker prune

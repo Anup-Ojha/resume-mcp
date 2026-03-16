@@ -40,10 +40,16 @@ def _redirect_uri() -> str:
     return f"{settings.public_api_url.rstrip('/')}/auth/google/callback"
 
 
-def build_auth_url(telegram_user_id: str) -> str:
-    """Return the Google OAuth2 URL the user should visit to connect Gmail."""
+def build_auth_url(telegram_user_id: str, source: str = "bot") -> str:
+    """
+    Return the Google OAuth2 URL the user should visit to connect Gmail.
+
+    source: 'bot'    — traditional flow (link sent in bot message)
+            'webapp' — Mini App flow (callback returns a page that calls
+                       Telegram.WebApp.sendData and closes)
+    """
     from urllib.parse import urlencode
-    state_bytes = json.dumps({"tid": str(telegram_user_id)}).encode()
+    state_bytes = json.dumps({"tid": str(telegram_user_id), "src": source}).encode()
     state = base64.urlsafe_b64encode(state_bytes).decode()
     params = {
         "client_id":     settings.google_client_id,
@@ -62,6 +68,14 @@ def decode_state(state: str) -> Optional[str]:
     try:
         data = json.loads(base64.urlsafe_b64decode(state.encode()).decode())
         return str(data["tid"])
+    except Exception:
+        return None
+
+
+def decode_state_full(state: str) -> Optional[dict]:
+    """Decode base64 state → full dict {tid, src}, or None on error."""
+    try:
+        return json.loads(base64.urlsafe_b64decode(state.encode()).decode())
     except Exception:
         return None
 

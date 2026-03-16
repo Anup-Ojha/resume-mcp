@@ -15,7 +15,12 @@ pytesseract>=0.3.10
 
 # AI integration
 google-genai>=1.0.0
-supabase>=2.0.0
+
+# Database (self-hosted PostgreSQL — replaces Supabase)
+sqlalchemy[asyncio]>=2.0
+asyncpg>=0.29
+alembic>=1.13
+psycopg2-binary>=2.9
 
 # Google OAuth + Gmail
 google-api-python-client>=2.0.0

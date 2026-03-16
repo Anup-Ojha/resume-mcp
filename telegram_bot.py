@@ -6,9 +6,11 @@ Directly calls the FastAPI resume generator service.
 
 import os
 import logging
+import functools
 import requests
+from datetime import datetime, timezone
 from io import BytesIO
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
     filters, ContextTypes, ConversationHandler, CallbackQueryHandler
@@ -22,7 +24,20 @@ logger = logging.getLogger(__name__)
 
 # Config
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-RESUME_API_URL = os.environ.get("RESUME_API_URL", "http://resume-generator:8000")
+RESUME_API_URL     = os.environ.get("RESUME_API_URL", "http://resume-generator:8000")
+WEBAPP_URL         = os.environ.get("WEBAPP_URL", "http://localhost:8000/webapp/")
+
+# DB client — imported lazily to avoid circular import issues at startup
+_db = None
+def _get_db():
+    global _db
+    if _db is None:
+        try:
+            from app.db import db as _app_db
+            _db = _app_db
+        except Exception as e:
+            logger.warning(f"DB not available: {e}")
+    return _db
 
 # ── Conversation states ───────────────────────────────────────────────────────
 # /create flow
@@ -46,6 +61,66 @@ APPLY_WAITING_RESUME  = 6
 APPLY_COLLECTING_TEXT = 7
 APPLY_PROMPT_STEP     = 13   # Optional AI instruction before confirming
 APPLY_CONFIRMING      = 8
+
+# Token costs — must match TOKEN_COSTS in app/db.py
+TOKEN_COSTS = {"create": 2, "tailor": 1, "update": 1, "apply": 3}
+
+# ── Auth decorators ───────────────────────────────────────────────────────────
+
+def require_registered(func):
+    """
+    Decorator: block command if user hasn't signed in via Mini App.
+    Stores profile in context.user_data['_profile'] for downstream handlers.
+    Works on both direct commands and conversation entry points.
+    """
+    @functools.wraps(func)
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        tg_user = update.effective_user
+        if not tg_user:
+            return
+        db = _get_db()
+        if db:
+            profile = db.get_telegram_user(str(tg_user.id))
+            if not profile or not profile.get("is_registered"):
+                msg_obj = update.message or (update.callback_query and update.callback_query.message)
+                if msg_obj:
+                    keyboard = [[InlineKeyboardButton(
+                        "🚀 Sign in to get started",
+                        web_app=WebAppInfo(url=WEBAPP_URL)
+                    )]]
+                    await msg_obj.reply_text(
+                        "👋 Please sign in first to use ResumeBot.\n\n"
+                        "Tap the button below to sign in with Google.",
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+                return
+            context.user_data["_profile"] = profile
+        return await func(update, context)
+    return wrapper
+
+
+def require_tokens(operation: str):
+    """
+    Decorator: check and deduct tokens before executing a command.
+    Must be stacked UNDER @require_registered (require_registered runs first).
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            tg_user = update.effective_user
+            if not tg_user:
+                return
+            db = _get_db()
+            if db:
+                ok, msg = db.check_and_deduct(str(tg_user.id), operation)
+                if not ok:
+                    msg_obj = update.message or (update.callback_query and update.callback_query.message)
+                    if msg_obj:
+                        await msg_obj.reply_text(msg, parse_mode="Markdown")
+                    return
+            return await func(update, context)
+        return wrapper
+    return decorator
 
 
 # ── API helpers ───────────────────────────────────────────────────────────────
@@ -158,8 +233,9 @@ def resume_exists_for_user(user_id: str) -> bool:
     return result.get("exists", False)
 
 
-def list_pdfs() -> dict:
-    return _get("/api/pdfs", timeout=10)
+def list_pdfs(user_id: str = None) -> dict:
+    path = f"/api/pdfs?user_id={user_id}" if user_id else "/api/pdfs"
+    return _get(path, timeout=10)
 
 
 # ── Google / Gmail helpers ────────────────────────────────────────────────────
@@ -290,6 +366,64 @@ def _optional_prompt_keyboard() -> InlineKeyboardMarkup:
 # ── /start ────────────────────────────────────────────────────────────────────
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    tg_user = update.effective_user
+    db = _get_db()
+
+    # ── Check registration ─────────────────────────────────────────────────────
+    if db:
+        profile = db.get_telegram_user(str(tg_user.id))
+        if not profile or not profile.get("is_registered"):
+            keyboard = [[InlineKeyboardButton(
+                "🚀 Get Started — Sign in with Google",
+                web_app=WebAppInfo(url=WEBAPP_URL)
+            )]]
+            await update.message.reply_text(
+                "👋 Welcome to *ResumeBot*!\n\n"
+                "I create professional PDF resumes with AI and help you apply for jobs directly from Telegram.\n\n"
+                "Sign in with Google to get started. You'll receive *5 free tokens* every month.\n\n"
+                "_Tap the button below ↓_",
+                parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+            return
+
+        # ── Registered user: show full menu ───────────────────────────────────
+        tokens    = profile.get("tokens_remaining", 0)
+        plan      = profile.get("plan", "free").upper()
+        name      = profile.get("google_name") or tg_user.first_name or "there"
+        reset_str = ""
+        reset_at  = profile.get("tokens_reset_at")
+        if reset_at:
+            try:
+                from datetime import datetime, timezone
+                reset_dt = datetime.fromisoformat(reset_at)
+                if reset_dt.tzinfo is None:
+                    reset_dt = reset_dt.replace(tzinfo=timezone.utc)
+                days = (reset_dt - datetime.now(timezone.utc)).days
+                reset_str = f" | Resets in {max(0, days)}d"
+            except Exception:
+                pass
+
+        keyboard = [
+            [InlineKeyboardButton("📄 Create Resume",        callback_data="create")],
+            [InlineKeyboardButton("✏️ Update My Resume",     callback_data="update")],
+            [InlineKeyboardButton("🎯 Tailor Resume to JD",  callback_data="tailor")],
+            [InlineKeyboardButton("📧 Apply via Email",       callback_data="apply")],
+            [InlineKeyboardButton("📋 List My PDFs",         callback_data="list")],
+            [InlineKeyboardButton("💳 Token Balance",        callback_data="balance"),
+             InlineKeyboardButton("🔐 Connect Gmail",        callback_data="login")],
+            [InlineKeyboardButton("🔍 API Status",           callback_data="status")],
+        ]
+        await update.message.reply_text(
+            f"👋 Welcome back, *{name}*!\n"
+            f"🔑 *{tokens} token(s)*{reset_str}  |  Plan: {plan}\n\n"
+            "What would you like to do?",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return
+
+    # ── DB not available — fallback to plain menu ──────────────────────────────
     keyboard = [
         [InlineKeyboardButton("📄 Create Resume",           callback_data="create")],
         [InlineKeyboardButton("✏️ Update My Resume",        callback_data="update")],
@@ -367,29 +501,33 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ── /list ─────────────────────────────────────────────────────────────────────
 
+@require_registered
 async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg_obj = update.message or (update.callback_query and update.callback_query.message)
     if not msg_obj:
         return
+    user_id = str(update.effective_user.id)
     await msg_obj.reply_text("🔍 Fetching your PDFs...")
-    result = list_pdfs()
+    result = list_pdfs(user_id=user_id)
     pdfs = result.get("pdfs", [])
     if not pdfs:
         await msg_obj.reply_text(
             "No PDFs generated yet.\nUse /create to make one or /tailor to tailor for a job!"
         )
         return
-    lines = ["📄 Your Generated PDFs:\n"]
+    lines = ["📄 *Your Generated PDFs:*\n"]
     for pdf in pdfs:
         lines.append(f"• {pdf['filename']} ({pdf['size'] / 1024:.1f} KB)")
     lines.append("\nUse /create, /update, or /tailor to generate more.")
-    await msg_obj.reply_text("\n".join(lines))
+    await msg_obj.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # /create flow — brand-new resume from scratch
 # ═══════════════════════════════════════════════════════════════════════════════
 
+@require_registered
+@require_tokens("create")
 async def create_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     await update.message.reply_text(
@@ -543,6 +681,8 @@ async def _do_create(msg_obj, context: ContextTypes.DEFAULT_TYPE):
 # /update flow — modify existing saved resume
 # ═══════════════════════════════════════════════════════════════════════════════
 
+@require_registered
+@require_tokens("update")
 async def update_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     user_id = str(update.effective_user.id)
@@ -658,6 +798,8 @@ async def _do_update(msg_obj, context: ContextTypes.DEFAULT_TYPE):
 # /tailor flow — tailor existing/provided resume to a JD
 # ═══════════════════════════════════════════════════════════════════════════════
 
+@require_registered
+@require_tokens("tailor")
 async def tailor_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     context.user_data["tailor_user_id"] = str(update.effective_user.id)
@@ -1000,6 +1142,8 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # /apply flow — tailor + send email
 # ═══════════════════════════════════════════════════════════════════════════════
 
+@require_registered
+@require_tokens("apply")
 async def apply_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
     context.user_data.clear()
@@ -1327,15 +1471,18 @@ async def handle_inline_buttons(update: Update, context: ContextTypes.DEFAULT_TY
     elif query.data == "tailor":
         await query.message.reply_text("Send /tailor to start the guided tailoring flow!")
     elif query.data == "list":
-        result = list_pdfs()
+        uid = str(query.from_user.id)
+        result = list_pdfs(user_id=uid)
         pdfs = result.get("pdfs", [])
         if not pdfs:
             await query.message.reply_text("No PDFs yet. Use /create or /tailor!")
         else:
-            lines = ["📄 Your Generated PDFs:\n"]
+            lines = ["📄 *Your Generated PDFs:*\n"]
             for pdf in pdfs:
                 lines.append(f"• {pdf['filename']} ({pdf['size'] / 1024:.1f} KB)")
-            await query.message.reply_text("\n".join(lines))
+            await query.message.reply_text("\n".join(lines), parse_mode="Markdown")
+    elif query.data == "balance":
+        await balance_command(update, context)
     elif query.data == "login":
         uid = str(query.from_user.id)
         url = get_auth_url(uid)
@@ -1366,6 +1513,102 @@ async def handle_inline_buttons(update: Update, context: ContextTypes.DEFAULT_TY
             f"LaTeX: {'✅ installed' if latex_ok else '❌ NOT installed'}\n"
             f"{detail}"
         )
+
+
+# ── Mini App web_app_data handler (Phase 1) ───────────────────────────────────
+
+async def webapp_data_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Called when the Mini App sends data back via Telegram.WebApp.sendData().
+    "auth_complete" means the user finished Google sign-in in the Mini App.
+    """
+    data = update.message.web_app_data.data if update.message.web_app_data else ""
+    tg_user = update.effective_user
+
+    if data == "auth_complete":
+        db = _get_db()
+        if db:
+            profile = db.get_telegram_user(str(tg_user.id))
+            if profile and profile.get("is_registered"):
+                name   = profile.get("google_name") or tg_user.first_name or "there"
+                tokens = profile.get("tokens_remaining", 5)
+                plan   = profile.get("plan", "free").upper()
+
+                keyboard = [
+                    [InlineKeyboardButton("📄 Create Resume",        callback_data="create")],
+                    [InlineKeyboardButton("✏️ Update My Resume",     callback_data="update")],
+                    [InlineKeyboardButton("🎯 Tailor Resume to JD",  callback_data="tailor")],
+                    [InlineKeyboardButton("📧 Apply via Email",       callback_data="apply")],
+                    [InlineKeyboardButton("📋 List My PDFs",         callback_data="list")],
+                    [InlineKeyboardButton("💳 Token Balance",        callback_data="balance"),
+                     InlineKeyboardButton("🔐 Connect Gmail",        callback_data="login")],
+                    [InlineKeyboardButton("🔍 API Status",           callback_data="status")],
+                ]
+                await update.message.reply_text(
+                    f"✅ *Welcome, {name}!*\n\n"
+                    f"You're signed in with Google.\n"
+                    f"🔑 *{tokens} token(s)* | Plan: {plan}\n\n"
+                    "What would you like to do?",
+                    parse_mode="Markdown",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+                return
+
+        await update.message.reply_text(
+            "✅ Sign-in received! Type /start to continue."
+        )
+
+
+# ── /balance command (Phase 3) ────────────────────────────────────────────────
+
+@require_registered
+async def balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show current token balance, plan, and reset date."""
+    db = _get_db()
+    msg_obj = update.message or (update.callback_query and update.callback_query.message)
+    if not msg_obj:
+        return
+
+    if not db:
+        await msg_obj.reply_text("⚠️ Database not available.")
+        return
+
+    profile = db.get_telegram_user(str(update.effective_user.id))
+    if not profile:
+        await msg_obj.reply_text("Could not fetch your profile. Try /start.")
+        return
+
+    tokens   = profile.get("tokens_remaining", 0)
+    plan     = profile.get("plan", "free").upper()
+    reset_at = profile.get("tokens_reset_at", "")
+    reset_str = "Unknown"
+    days_left = 0
+
+    if reset_at:
+        try:
+            from datetime import datetime, timezone
+            reset_dt = datetime.fromisoformat(reset_at)
+            if reset_dt.tzinfo is None:
+                reset_dt = reset_dt.replace(tzinfo=timezone.utc)
+            days_left = max(0, (reset_dt - datetime.now(timezone.utc)).days)
+            reset_str = reset_dt.strftime("%-d %b %Y")
+        except Exception:
+            pass
+
+    # Build a simple progress bar (out of 5 for free tier)
+    total = 5
+    filled = min(tokens, total)
+    bar = "🟩" * filled + "⬜" * (total - filled)
+
+    await msg_obj.reply_text(
+        f"💳 *Your Token Balance*\n\n"
+        f"{bar}\n"
+        f"Tokens: *{tokens} / {total}*\n"
+        f"Plan: *{plan}*\n"
+        f"Resets on: *{reset_str}* ({days_left} days)\n\n"
+        f"_Token costs: Create=2 · Tailor=1 · Update=1 · Apply=3_",
+        parse_mode="Markdown"
+    )
 
 
 # ── Fallback message handler ──────────────────────────────────────────────────
@@ -1490,6 +1733,7 @@ def main():
     application.add_handler(CommandHandler("help",    help_command))
     application.add_handler(CommandHandler("status",  status_command))
     application.add_handler(CommandHandler("list",    list_command))
+    application.add_handler(CommandHandler("balance", balance_command))
     application.add_handler(CommandHandler("login",   login_command))
     application.add_handler(CommandHandler("logout",  logout_command))
     application.add_handler(CommandHandler("whoami",  whoami_command))
@@ -1500,6 +1744,8 @@ def main():
     application.add_handler(tailor_conv)
     application.add_handler(apply_conv)
     application.add_handler(CallbackQueryHandler(handle_inline_buttons))
+    # Mini App data handler — must come before generic text handler
+    application.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, webapp_data_received))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     logger.info("ResumeBot starting…")

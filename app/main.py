@@ -40,6 +40,11 @@ app.add_middleware(
 # Mount static files
 app.mount("/static", StaticFiles(directory=str(settings.static_dir)), name="static")
 
+# Mount Telegram Mini App (served at /webapp/)
+_webapp_dir = settings.static_dir / "webapp"
+_webapp_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/webapp", StaticFiles(directory=str(_webapp_dir), html=True), name="webapp")
+
 # Mount MCP Server (SSE)
 app.mount("/mcp", mcp_app)
 
@@ -108,10 +113,16 @@ async def generate_pdf(request: GeneratePDFRequest):
 
 
 @app.get("/api/pdfs")
-async def list_pdfs():
-    """List all generated PDFs"""
+async def list_pdfs(user_id: Optional[str] = Query(None)):
+    """
+    List generated PDFs. If user_id is provided, only return files
+    belonging to that user (filename contains the user_id string).
+    """
     try:
         pdfs = latex_processor.list_generated_pdfs()
+        if user_id:
+            clean_id = str(user_id).strip()
+            pdfs = [p for p in pdfs if clean_id in p.get("filename", "")]
         return {"success": True, "pdfs": pdfs}
     except Exception as e:
         logger.error(f"Error listing PDFs: {str(e)}")
@@ -119,21 +130,20 @@ async def list_pdfs():
 
 
 @app.get("/api/pdfs/{filename}")
-async def download_pdf(filename: str):
+async def download_pdf(filename: str, user_id: Optional[str] = Query(None)):
     """
-    Download a generated PDF
-    
-    Args:
-        filename: Name of the PDF file to download
-        
-    Returns:
-        FileResponse with the PDF file
+    Download a generated PDF.
+    If user_id is provided, verifies the filename belongs to that user.
     """
     try:
+        # Ownership check — filename must contain the user_id
+        if user_id and str(user_id).strip() not in filename:
+            raise HTTPException(status_code=403, detail="Access denied: this file does not belong to you.")
+
         pdf_path = latex_processor.get_pdf_path(filename)
         if not pdf_path:
             raise HTTPException(status_code=404, detail=f"PDF not found: {filename}")
-        
+
         return FileResponse(
             pdf_path,
             media_type="application/pdf",
@@ -147,17 +157,15 @@ async def download_pdf(filename: str):
 
 
 @app.delete("/api/pdfs/{filename}")
-async def delete_pdf(filename: str):
+async def delete_pdf(filename: str, user_id: Optional[str] = Query(None)):
     """
-    Delete a generated PDF
-    
-    Args:
-        filename: Name of the PDF file to delete
-        
-    Returns:
-        Success message
+    Delete a generated PDF.
+    If user_id is provided, verifies the filename belongs to that user.
     """
     try:
+        if user_id and str(user_id).strip() not in filename:
+            raise HTTPException(status_code=403, detail="Access denied: this file does not belong to you.")
+
         success, message = latex_processor.delete_pdf(filename)
         if success:
             return {"success": True, "message": message}
@@ -499,11 +507,17 @@ async def resume_exists(user_id: str):
 # ── Google OAuth endpoints ────────────────────────────────────────────────────
 
 @app.get("/auth/url")
-async def get_auth_url(telegram_user_id: str = Query(...)):
-    """Return a Google OAuth2 URL the Telegram bot can send to the user."""
+async def get_auth_url(
+    telegram_user_id: str = Query(...),
+    source: str = Query("bot"),
+):
+    """
+    Return a Google OAuth2 URL the Telegram bot (or Mini App) can redirect to.
+    source: 'bot' (default) or 'webapp' — controls what the callback page returns.
+    """
     if not settings.google_client_id:
         raise HTTPException(status_code=503, detail="Google OAuth not configured. Set GOOGLE_CLIENT_ID.")
-    url = auth_module.build_auth_url(telegram_user_id)
+    url = auth_module.build_auth_url(telegram_user_id, source=source)
     return {"url": url}
 
 
@@ -511,7 +525,8 @@ async def get_auth_url(telegram_user_id: str = Query(...)):
 async def google_callback(code: str = Query(None), state: str = Query(None), error: str = Query(None)):
     """
     Google redirects here after user consents.
-    Stores tokens in Supabase and returns a user-friendly HTML page.
+    Stores tokens in PostgreSQL, marks user as registered, and returns
+    an appropriate HTML page depending on the source (bot vs webapp).
     """
     if error:
         return HTMLResponse(_callback_html("❌ Login cancelled", f"Google returned: {error}", success=False))
@@ -519,18 +534,26 @@ async def google_callback(code: str = Query(None), state: str = Query(None), err
     if not code or not state:
         return HTMLResponse(_callback_html("❌ Bad request", "Missing code or state parameter.", success=False))
 
-    telegram_user_id = auth_module.decode_state(state)
-    if not telegram_user_id:
+    # Decode state — may include source field
+    state_data = auth_module.decode_state_full(state)
+    if not state_data:
         return HTMLResponse(_callback_html("❌ Invalid state", "Could not verify the request.", success=False))
+
+    telegram_user_id = str(state_data.get("tid", ""))
+    source = state_data.get("src", "bot")  # 'bot' or 'webapp'
+
+    if not telegram_user_id:
+        return HTMLResponse(_callback_html("❌ Invalid state", "Missing Telegram user ID.", success=False))
 
     ok, user_info, tokens, msg = await auth_module.exchange_code(code, state)
     if not ok:
         return HTMLResponse(_callback_html("❌ Auth failed", msg, success=False))
 
-    # Ensure telegram user exists in DB
+    # Ensure telegram user row exists
     db.get_or_create_telegram_user(int(telegram_user_id))
 
-    saved = db.save_google_tokens(
+    # Save Google tokens
+    db.save_google_tokens(
         telegram_id   = telegram_user_id,
         access_token  = tokens["access_token"],
         refresh_token = tokens.get("refresh_token"),
@@ -542,18 +565,25 @@ async def google_callback(code: str = Query(None), state: str = Query(None), err
         avatar_url    = user_info.get("picture"),
     )
 
+    # Mark user as registered (Phase 1 — generates user_uuid if not set)
+    db.mark_registered(telegram_user_id)
+
     name  = user_info.get("name", "")
     email = user_info.get("email", "")
+    logger.info(f"User {telegram_user_id} registered via {source}: {email}")
 
-    if not saved:
-        # Supabase not configured — still show success if exchange worked
-        logger.warning("Supabase not configured; tokens not persisted.")
-
-    return HTMLResponse(_callback_html(
-        "✅ Connected!",
-        f"Logged in as {name} ({email}).\n\nYou can close this tab and return to Telegram.",
-        success=True,
-    ))
+    # ── Return appropriate response based on source ────────────────────────────
+    if source == "webapp":
+        # Mini App flow: return a page that calls Telegram.WebApp.sendData
+        # and notifies the parent Mini App via postMessage before closing
+        return HTMLResponse(_webapp_callback_html(name, email))
+    else:
+        # Bot flow: plain success page with instruction to return to Telegram
+        return HTMLResponse(_callback_html(
+            "✅ Connected!",
+            f"Logged in as {name} ({email}).\n\nYou can close this tab and return to Telegram.",
+            success=True,
+        ))
 
 
 def _callback_html(title: str, body: str, success: bool = True) -> str:
@@ -583,6 +613,110 @@ def _callback_html(title: str, body: str, success: bool = True) -> str:
   </div>
 </body>
 </html>"""
+
+
+def _webapp_callback_html(name: str, email: str) -> str:
+    """
+    Returned after Mini App OAuth completes.
+    Notifies the Mini App's iframe via postMessage, then calls
+    Telegram.WebApp.sendData('auth_complete') and closes.
+    """
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ResumeBot — Sign In Complete</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body {{ font-family: -apple-system, sans-serif; display: flex; justify-content: center;
+            align-items: center; min-height: 100vh; margin: 0;
+            background: #1c1c2e; color: white; text-align: center; }}
+    .card {{ padding: 40px; max-width: 380px; }}
+    .icon {{ font-size: 64px; margin-bottom: 16px; }}
+    h2 {{ color: #4CAF50; margin: 0 0 12px; }}
+    p  {{ color: #aaa; line-height: 1.6; }}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">✅</div>
+    <h2>Signed in!</h2>
+    <p>Welcome, {name}!<br><small>{email}</small><br><br>Returning to ResumeBot…</p>
+  </div>
+  <script>
+    // Notify the Mini App opener via postMessage (fallback)
+    if (window.opener) {{
+      window.opener.postMessage("auth_complete", "*");
+    }}
+    // Use Telegram WebApp API if available
+    try {{
+      const tg = window.Telegram.WebApp;
+      tg.sendData("auth_complete");
+      setTimeout(() => tg.close(), 1000);
+    }} catch(e) {{
+      // Not in Mini App context — just close after delay
+      setTimeout(() => window.close(), 2000);
+    }}
+  </script>
+</body>
+</html>"""
+
+
+class WebAppInitRequest(BaseModel):
+    init_data: str
+
+
+@app.post("/api/auth/webapp-init")
+async def webapp_init(body: WebAppInitRequest):
+    """
+    Phase 2 — Verify Telegram Mini App initData signature.
+    Called by the Mini App JS on load to confirm identity and check registration status.
+    Returns the user's profile + token balance if valid.
+    """
+    from app.telegram_auth import verify_init_data
+
+    bot_token = settings.telegram_bot_token
+    if not bot_token:
+        # If bot token not configured, skip signature check (dev mode only)
+        logger.warning("TELEGRAM_BOT_TOKEN not set — skipping initData signature check")
+        from app.telegram_auth import parse_init_data_user
+        user_data = parse_init_data_user(body.init_data)
+        if not user_data:
+            raise HTTPException(status_code=400, detail="Could not parse initData")
+    else:
+        try:
+            user_data = verify_init_data(body.init_data, bot_token, check_age=False)
+        except ValueError as e:
+            logger.warning(f"initData verification failed: {e}")
+            raise HTTPException(status_code=403, detail=f"Invalid initData: {e}")
+
+    telegram_id = str(user_data.get("id", ""))
+    if not telegram_id:
+        raise HTTPException(status_code=400, detail="No user ID in initData")
+
+    profile = db.get_telegram_user(telegram_id)
+    if not profile:
+        return {
+            "verified":       True,
+            "telegram_id":    telegram_id,
+            "is_registered":  False,
+            "tokens_remaining": 0,
+            "plan":           "free",
+        }
+
+    return {
+        "verified":         True,
+        "telegram_id":      telegram_id,
+        "is_registered":    profile.get("is_registered", False),
+        "user_uuid":        profile.get("user_uuid"),
+        "google_name":      profile.get("google_name"),
+        "google_email":     profile.get("google_email"),
+        "google_avatar":    profile.get("google_avatar"),
+        "tokens_remaining": profile.get("tokens_remaining", 0),
+        "tokens_reset_at":  profile.get("tokens_reset_at"),
+        "plan":             profile.get("plan", "free"),
+    }
 
 
 @app.get("/auth/session/{telegram_user_id}")

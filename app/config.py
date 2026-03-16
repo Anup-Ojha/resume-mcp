@@ -56,9 +56,14 @@ class Settings(BaseSettings):
     # AI settings
     gemini_api_key: str = ""
 
-    # Supabase settings
-    supabase_url: str = ""
-    supabase_service_key: str = ""
+    # Database (self-hosted PostgreSQL — replaces Supabase)
+    database_url: str = "postgresql+asyncpg://resumebot:changeme@localhost:5432/resumebot"
+
+    # Telegram Mini App URL (must be HTTPS in production)
+    webapp_url: str = "http://localhost:8000/webapp/"
+
+    # Telegram Bot Token (used for initData HMAC verification)
+    telegram_bot_token: str = ""
 
     class Config:
         env_file = ".env"

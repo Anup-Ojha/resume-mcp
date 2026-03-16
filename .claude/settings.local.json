@@ -29,7 +29,11 @@
       "Bash(python -m pip install pydantic-settings --quiet)",
       "Bash(1 grep:*)",
       "Bash(python3 -c \":*)",
-      "Bash(python3 -c \"import ast; ast.parse\\(open\\(''app/main.py'',encoding=''utf-8''\\).read\\(\\)\\); print\\(''Syntax OK''\\)\")"
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\(''app/main.py'',encoding=''utf-8''\\).read\\(\\)\\); print\\(''Syntax OK''\\)\")",
+      "WebSearch",
+      "Bash(find 'D:\\\\anup data\\\\All COmpany Projects\\\\local resume creator' -name *.py -path */app/db.py -o -name database.py)",
+      "Bash(find 'D:\\\\anup data\\\\All COmpany Projects\\\\local resume creator' -type f \\\\\\(-name *.sql -o -name *migration* -o -name *schema* \\\\\\))",
+      "Bash(ls \"D:\\\\anup data\\\\All COmpany Projects\\\\local resume creator\\\\static\"\" 2>/dev/null || echo \"static dir not found or empty \")"
     ]
   }
 }
