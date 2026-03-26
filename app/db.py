@@ -208,41 +208,42 @@ class PostgresDB:
         except Exception:
             expiry_dt = None
 
-        async with AsyncSessionLocal() as session:
-            # Update telegram_users with Google profile
-            await session.execute(
-                update(TelegramUser)
-                .where(TelegramUser.telegram_id == telegram_id)
-                .values(
-                    google_id=google_id,
-                    google_email=email,
-                    google_name=full_name,
-                    google_avatar=avatar_url,
-                    last_seen_at=datetime.now(timezone.utc),
+        try:
+            async with AsyncSessionLocal() as session:
+                # Update telegram_users with Google profile
+                await session.execute(
+                    update(TelegramUser)
+                    .where(TelegramUser.telegram_id == telegram_id)
+                    .values(
+                        google_id=google_id,
+                        google_email=email,
+                        google_name=full_name,
+                        google_avatar=avatar_url,
+                        last_seen_at=datetime.now(timezone.utc),
+                    )
                 )
-            )
 
-            # Upsert google_tokens
-            stmt = pg_insert(GoogleToken).values(
-                telegram_user_id=telegram_id,
-                access_token=access_token,
-                refresh_token=refresh_token,
-                token_expiry=expiry_dt,
-                scopes=scopes,
-                updated_at=datetime.now(timezone.utc),
-            ).on_conflict_do_update(
-                index_elements=["telegram_user_id"],
-                set_={
-                    "access_token":  access_token,
-                    "token_expiry":  expiry_dt,
-                    "scopes":        scopes,
-                    "updated_at":    datetime.now(timezone.utc),
-                    **({"refresh_token": refresh_token} if refresh_token else {}),
-                }
-            )
-            await session.execute(stmt)
-            await session.commit()
-            return True
+                # Upsert google_tokens
+                stmt = pg_insert(GoogleToken).values(
+                    telegram_user_id=telegram_id,
+                    access_token=access_token,
+                    refresh_token=refresh_token,
+                    token_expiry=expiry_dt,
+                    scopes=scopes,
+                    updated_at=datetime.now(timezone.utc),
+                ).on_conflict_do_update(
+                    index_elements=["telegram_user_id"],
+                    set_={
+                        "access_token":  access_token,
+                        "token_expiry":  expiry_dt,
+                        "scopes":        scopes,
+                        "updated_at":    datetime.now(timezone.utc),
+                        **({"refresh_token": refresh_token} if refresh_token else {}),
+                    }
+                )
+                await session.execute(stmt)
+                await session.commit()
+                return True
         except Exception as e:
             logger.error(f"save_google_tokens error: {e}")
             return False
