@@ -462,6 +462,53 @@ class PostgresDB:
             await session.commit()
             return True
 
+    # ── Async public interface (for FastAPI endpoints — avoids _run() in event loop) ──
+
+    async def async_get_or_create_telegram_user(
+        self,
+        telegram_id: int,
+        first_name: Optional[str] = None,
+        username: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Awaitable version — call this from FastAPI endpoints."""
+        return await self._get_or_create_telegram_user(telegram_id, first_name, username)
+
+    async def async_mark_registered(
+        self, telegram_id: int, user_uuid: Optional[str] = None
+    ) -> bool:
+        """Awaitable version — call this from FastAPI endpoints."""
+        return await self._mark_registered(telegram_id, user_uuid)
+
+    async def async_get_telegram_user(
+        self, telegram_id: int
+    ) -> Optional[Dict[str, Any]]:
+        """Awaitable version — call this from FastAPI endpoints."""
+        return await self._get_telegram_user(telegram_id)
+
+    async def async_save_google_tokens(
+        self,
+        telegram_id: int,
+        access_token: str,
+        refresh_token: Optional[str],
+        token_expiry: str,
+        scopes: str,
+        google_id: str,
+        email: str,
+        full_name: str,
+        avatar_url: Optional[str] = None,
+    ) -> bool:
+        """Awaitable version — call this from FastAPI endpoints."""
+        return await self._save_google_tokens(
+            telegram_id, access_token, refresh_token,
+            token_expiry, scopes, google_id, email, full_name, avatar_url,
+        )
+
+    async def async_check_and_deduct(
+        self, telegram_id: int, operation: str
+    ) -> Tuple[bool, str]:
+        """Awaitable version — call this from FastAPI endpoints."""
+        return await self._check_and_deduct(telegram_id, operation)
+
     # ── Internal helpers ───────────────────────────────────────────────────────
 
     @staticmethod

@@ -27,17 +27,18 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 RESUME_API_URL     = os.environ.get("RESUME_API_URL", "http://resume-generator:8000")
 WEBAPP_URL         = os.environ.get("WEBAPP_URL", "http://localhost:8000/webapp/")
 
-# DB client — imported lazily to avoid circular import issues at startup
-_db = None
-def _get_db():
-    global _db
-    if _db is None:
-        try:
-            from app.db import db as _app_db
-            _db = _app_db
-        except Exception as e:
-            logger.warning(f"DB not available: {e}")
-    return _db
+import requests as _requests
+
+def _api_call(method: str, path: str, **kwargs):
+    """Make HTTP call to the resume-generator API."""
+    base = os.environ.get("RESUME_API_URL", "http://resume-generator:8000")
+    url = f"{base.rstrip('/')}{path}"
+    try:
+        resp = getattr(_requests, method)(url, timeout=10, **kwargs)
+        return resp.json() if resp.content else {}
+    except Exception as e:
+        logger.warning(f"API call failed {method} {path}: {e}")
+        return None
 
 # ── Conversation states ───────────────────────────────────────────────────────
 # /create flow
@@ -78,18 +79,15 @@ def require_registered(func):
         tg_user = update.effective_user
         if not tg_user:
             return
-        db = _get_db()
-        if db:
-            # Auto-create + register user on first encounter — no Gmail needed
-            profile = db.get_or_create_telegram_user(
-                tg_user.id,
-                tg_user.first_name,
-                tg_user.username,
-            )
-            if profile and not profile.get("is_registered"):
-                db.mark_registered(str(tg_user.id))
-                profile["is_registered"] = True
-            context.user_data["_profile"] = profile or {}
+        resp = _api_call("post", "/api/users/session", json={
+            "telegram_id": str(tg_user.id),
+            "first_name": tg_user.first_name or "",
+            "username": tg_user.username or "",
+        })
+        if resp and resp.get("ok"):
+            context.user_data["_profile"] = resp.get("user") or {}
+        else:
+            context.user_data["_profile"] = {}
         return await func(update, context)
     return wrapper
 
@@ -105,13 +103,12 @@ def require_tokens(operation: str):
             tg_user = update.effective_user
             if not tg_user:
                 return
-            db = _get_db()
-            if db:
-                ok, msg = db.check_and_deduct(str(tg_user.id), operation)
-                if not ok:
+            resp = _api_call("post", f"/api/users/{tg_user.id}/deduct", json={"operation": operation})
+            if resp is not None:
+                if not resp.get("ok"):
                     msg_obj = update.message or (update.callback_query and update.callback_query.message)
                     if msg_obj:
-                        await msg_obj.reply_text(msg, parse_mode="Markdown")
+                        await msg_obj.reply_text(resp.get("message", "Insufficient tokens."), parse_mode="Markdown")
                     return
             return await func(update, context)
         return wrapper
@@ -123,7 +120,12 @@ def require_tokens(operation: str):
 def _post(path: str, **kwargs) -> dict:
     try:
         resp = requests.post(f"{RESUME_API_URL}{path}", **kwargs)
-        return resp.json()
+        if not resp.content:
+            return {"success": False, "message": f"Empty response from API (HTTP {resp.status_code})"}
+        try:
+            return resp.json()
+        except Exception:
+            return {"success": False, "message": f"API returned non-JSON response (HTTP {resp.status_code})"}
     except Exception as e:
         return {"success": False, "message": str(e)}
 
@@ -131,7 +133,16 @@ def _post(path: str, **kwargs) -> dict:
 def _get(path: str, **kwargs) -> dict:
     try:
         resp = requests.get(f"{RESUME_API_URL}{path}", **kwargs)
-        return resp.json()
+        if not resp.content:
+            return {"success": False, "message": f"Empty response from API (HTTP {resp.status_code})"}
+        try:
+            data = resp.json()
+        except Exception:
+            return {"success": False, "message": f"API returned non-JSON response (HTTP {resp.status_code})"}
+        # Surface HTTP errors as failures so callers can show a clean message
+        if not resp.ok and "detail" in data:
+            return {"success": False, "message": data["detail"]}
+        return data
     except Exception as e:
         return {"success": False, "message": str(e)}
 
@@ -362,7 +373,6 @@ def _optional_prompt_keyboard() -> InlineKeyboardMarkup:
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tg_user = update.effective_user
-    db = _get_db()
 
     # ── Auto-register via Telegram ID (no Gmail required) ─────────────────────
     tokens    = 5
@@ -370,29 +380,27 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name      = tg_user.first_name or "there"
     reset_str = ""
 
-    if db:
-        profile = db.get_or_create_telegram_user(
-            tg_user.id, tg_user.first_name, tg_user.username
-        )
-        if profile and not profile.get("is_registered"):
-            db.mark_registered(str(tg_user.id))
-            profile["is_registered"] = True
-
-        if profile:
-            context.user_data["_profile"] = profile
-            tokens    = profile.get("tokens_remaining", 5)
-            plan      = profile.get("plan", "free").upper()
-            name      = profile.get("google_name") or tg_user.first_name or "there"
-            reset_at  = profile.get("tokens_reset_at")
-            if reset_at:
-                try:
-                    reset_dt = datetime.fromisoformat(reset_at)
-                    if reset_dt.tzinfo is None:
-                        reset_dt = reset_dt.replace(tzinfo=timezone.utc)
-                    days = (reset_dt - datetime.now(timezone.utc)).days
-                    reset_str = f" | Resets in {max(0, days)}d"
-                except Exception:
-                    pass
+    resp = _api_call("post", "/api/users/session", json={
+        "telegram_id": str(tg_user.id),
+        "first_name": tg_user.first_name or "",
+        "username": tg_user.username or "",
+    })
+    if resp and resp.get("ok"):
+        profile = resp.get("user") or {}
+        context.user_data["_profile"] = profile
+        tokens    = profile.get("tokens_remaining", 5)
+        plan      = profile.get("plan", "free").upper()
+        name      = profile.get("google_name") or tg_user.first_name or "there"
+        reset_at  = profile.get("tokens_reset_at")
+        if reset_at:
+            try:
+                reset_dt = datetime.fromisoformat(reset_at)
+                if reset_dt.tzinfo is None:
+                    reset_dt = reset_dt.replace(tzinfo=timezone.utc)
+                days = (reset_dt - datetime.now(timezone.utc)).days
+                reset_str = f" | Resets in {max(0, days)}d"
+            except Exception:
+                pass
 
     keyboard = [
         [InlineKeyboardButton("📄 Create Resume",        callback_data="create")],
@@ -1009,7 +1017,6 @@ async def tailor_got_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def login_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
-    await update.message.reply_text("🔐 Generating your Google login link…")
     url = get_auth_url(user_id)
     if not url:
         await update.message.reply_text(
@@ -1018,7 +1025,7 @@ async def login_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     await update.message.reply_text(
-        f"Click the link below to connect your Google account:\n\n{url}\n\n"
+        f"🔐 Click the link below to connect your Google account:\n\n{url}\n\n"
         "After authorising, you can use /inbox and /search to read your Gmail."
     )
 
@@ -1497,10 +1504,14 @@ async def webapp_data_received(update: Update, context: ContextTypes.DEFAULT_TYP
     tg_user = update.effective_user
 
     if data == "auth_complete":
-        db = _get_db()
-        if db:
-            profile = db.get_telegram_user(str(tg_user.id))
-            if profile and profile.get("is_registered"):
+        resp = _api_call("post", "/api/users/session", json={
+            "telegram_id": str(tg_user.id),
+            "first_name": tg_user.first_name or "",
+            "username": tg_user.username or "",
+        })
+        if resp and resp.get("ok"):
+            profile = resp.get("user") or {}
+            if profile.get("is_registered"):
                 name   = profile.get("google_name") or tg_user.first_name or "there"
                 tokens = profile.get("tokens_remaining", 5)
                 plan   = profile.get("plan", "free").upper()
@@ -1535,36 +1546,33 @@ async def webapp_data_received(update: Update, context: ContextTypes.DEFAULT_TYP
 @require_registered
 async def balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show current token balance, plan, and reset date."""
-    db = _get_db()
     msg_obj = update.message or (update.callback_query and update.callback_query.message)
     if not msg_obj:
         return
 
-    if not db:
+    telegram_id = str(update.effective_user.id)
+    resp = _api_call("get", f"/api/users/{telegram_id}/balance")
+    if not resp:
         await msg_obj.reply_text("⚠️ Database not available.")
         return
-
-    profile = db.get_telegram_user(str(update.effective_user.id))
-    if not profile:
+    if not resp.get("ok"):
         await msg_obj.reply_text("Could not fetch your profile. Try /start.")
         return
 
-    tokens   = profile.get("tokens_remaining", 0)
-    plan     = profile.get("plan", "free").upper()
-    reset_at = profile.get("tokens_reset_at", "")
+    tokens    = resp.get("tokens_remaining", 0)
+    plan      = resp.get("plan", "free").upper()
+    reset_at  = resp.get("reset_at", "")
+    days_left = resp.get("days_until_reset", 0) or 0
     reset_str = "Unknown"
-    days_left = 0
 
     if reset_at:
         try:
-            from datetime import datetime, timezone
             reset_dt = datetime.fromisoformat(reset_at)
             if reset_dt.tzinfo is None:
                 reset_dt = reset_dt.replace(tzinfo=timezone.utc)
-            days_left = max(0, (reset_dt - datetime.now(timezone.utc)).days)
             reset_str = reset_dt.strftime("%-d %b %Y")
         except Exception:
-            pass
+            reset_str = reset_at
 
     # Build a simple progress bar (out of 5 for free tier)
     total = 5

@@ -7,6 +7,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from typing import Optional
+from datetime import datetime
 import logging
 import tempfile
 import secrets
@@ -605,11 +606,11 @@ async def google_callback(code: str = Query(None), state: str = Query(None), err
         return HTMLResponse(_callback_html("❌ Auth failed", msg, success=False))
 
     # Ensure telegram user row exists
-    db.get_or_create_telegram_user(int(telegram_user_id))
+    await db.async_get_or_create_telegram_user(int(telegram_user_id))
 
     # Save Google tokens
-    db.save_google_tokens(
-        telegram_id   = telegram_user_id,
+    saved = await db.async_save_google_tokens(
+        telegram_id   = int(telegram_user_id),
         access_token  = tokens["access_token"],
         refresh_token = tokens.get("refresh_token"),
         token_expiry  = tokens["token_expiry"],
@@ -619,9 +620,17 @@ async def google_callback(code: str = Query(None), state: str = Query(None), err
         full_name     = user_info.get("name", ""),
         avatar_url    = user_info.get("picture"),
     )
+    if not saved:
+        logger.error(f"save_google_tokens returned False for user {telegram_user_id}")
+        return HTMLResponse(_callback_html(
+            "❌ Database error",
+            "Google login succeeded but we could not save your session.\n"
+            "Please try again or contact support.",
+            success=False,
+        ))
 
     # Mark user as registered (Phase 1 — generates user_uuid if not set)
-    db.mark_registered(telegram_user_id)
+    await db.async_mark_registered(int(telegram_user_id))
 
     name  = user_info.get("name", "")
     email = user_info.get("email", "")
@@ -1176,6 +1185,107 @@ async def tailor_resume_v2(request: TailorResumeV2Request):
     if pdf_ok:
         return PDFResponse(success=True, message=pdf_msg, filename=f"{out_filename}.pdf")
     raise HTTPException(status_code=500, detail=pdf_msg)
+
+
+# ── User Session & Token API endpoints (used by Telegram bot) ────────────────
+
+@app.post("/api/users/session")
+async def create_or_get_user_session(request: Request):
+    """Create or get a user session. Called by bot on /start."""
+    data = await request.json()
+    telegram_id = str(data.get("telegram_id", ""))
+    first_name = data.get("first_name", "")
+    username = data.get("username", "")
+
+    if not telegram_id:
+        raise HTTPException(status_code=400, detail="telegram_id required")
+
+    try:
+        profile = await db.async_get_or_create_telegram_user(
+            int(telegram_id), first_name, username
+        )
+        if profile and not profile.get("is_registered"):
+            await db.async_mark_registered(int(telegram_id))
+            profile = await db.async_get_telegram_user(int(telegram_id))
+        return {"ok": True, "user": profile}
+    except Exception as e:
+        logger.error(f"Session error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/users/{telegram_id}/balance")
+async def get_token_balance(telegram_id: str):
+    """Get token balance for a user."""
+    try:
+        profile = await db.async_get_telegram_user(int(telegram_id))
+        if not profile:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        tokens = profile.get("tokens_remaining", 0)
+        plan = profile.get("plan", "free")
+        reset_at = profile.get("tokens_reset_at")
+
+        # Calculate days until reset
+        days_until_reset = None
+        if reset_at:
+            from datetime import timezone
+            now = datetime.utcnow().replace(tzinfo=timezone.utc)
+            if isinstance(reset_at, str):
+                from dateutil import parser as dtparser
+                reset_dt = dtparser.parse(reset_at)
+            else:
+                reset_dt = reset_at
+            if reset_dt.tzinfo is None:
+                reset_dt = reset_dt.replace(tzinfo=timezone.utc)
+            delta = reset_dt - now
+            days_until_reset = max(0, delta.days)
+
+        return {
+            "ok": True,
+            "telegram_id": telegram_id,
+            "tokens_remaining": tokens,
+            "plan": plan,
+            "reset_at": str(reset_at) if reset_at else None,
+            "days_until_reset": days_until_reset,
+            "token_costs": {"create": 2, "tailor": 1, "update": 1, "apply": 3}
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Balance error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/users/{telegram_id}/deduct")
+async def deduct_tokens(telegram_id: str, request: Request):
+    """Check and deduct tokens for an operation."""
+    data = await request.json()
+    operation = data.get("operation", "")
+
+    if not operation:
+        raise HTTPException(status_code=400, detail="operation required")
+
+    try:
+        ok, message = await db.async_check_and_deduct(int(telegram_id), operation)
+        return {"ok": ok, "message": message}
+    except Exception as e:
+        logger.error(f"Deduct error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/users/{telegram_id}/profile")
+async def get_user_profile(telegram_id: str):
+    """Get full user profile."""
+    try:
+        profile = await db.async_get_telegram_user(int(telegram_id))
+        if not profile:
+            raise HTTPException(status_code=404, detail="User not found")
+        return {"ok": True, "user": profile}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Profile error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

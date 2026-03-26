@@ -63,10 +63,15 @@ def build_auth_url(telegram_user_id: str, source: str = "bot") -> str:
     return f"{GOOGLE_OAUTH_URL}?{urlencode(params)}"
 
 
+def _pad_base64(s: str) -> str:
+    """Add missing base64 padding so urlsafe_b64decode doesn't raise."""
+    return s + "=" * (-len(s) % 4)
+
+
 def decode_state(state: str) -> Optional[str]:
     """Decode base64 state → telegram_user_id string, or None on error."""
     try:
-        data = json.loads(base64.urlsafe_b64decode(state.encode()).decode())
+        data = json.loads(base64.urlsafe_b64decode(_pad_base64(state).encode()).decode())
         return str(data["tid"])
     except Exception:
         return None
@@ -75,7 +80,7 @@ def decode_state(state: str) -> Optional[str]:
 def decode_state_full(state: str) -> Optional[dict]:
     """Decode base64 state → full dict {tid, src}, or None on error."""
     try:
-        return json.loads(base64.urlsafe_b64decode(state.encode()).decode())
+        return json.loads(base64.urlsafe_b64decode(_pad_base64(state).encode()).decode())
     except Exception:
         return None
 
