@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Query, Request, Depends
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -24,10 +25,23 @@ from mcp_server.server import mcp_app
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Create all DB tables on startup if they don't exist
+    from app.database import engine
+    from app.models import Base
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("Database tables created/verified.")
+    yield
+
+
 # Initialize FastAPI app
 app = FastAPI(
     title="LaTeX Resume Generator",
     description="Generate professional PDF resumes from LaTeX code",
+    lifespan=lifespan,
     version="1.0.0"
 )
 
