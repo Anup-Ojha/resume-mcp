@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     # Telegram Bot Token (used for initData HMAC verification)
     telegram_bot_token: str = ""
 
+    # Admin panel password (for /admin route — protects Adminer DB UI)
+    admin_password: str = ""
+
     class Config:
         env_file = ".env"
         extra = "ignore"

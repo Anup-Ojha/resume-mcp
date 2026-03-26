@@ -1,12 +1,15 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Query
-from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Query, Request, Depends
+from fastapi.responses import FileResponse, JSONResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from typing import Optional
 import logging
 import tempfile
+import secrets
+import httpx
 from pathlib import Path
 
 from app.config import settings
@@ -47,6 +50,41 @@ app.mount("/webapp", StaticFiles(directory=str(_webapp_dir), html=True), name="w
 
 # Mount MCP Server (SSE)
 app.mount("/mcp", mcp_app)
+
+# ── Admin panel (Adminer proxy) ──────────────────────────────────────────────
+_basic_auth = HTTPBasic()
+
+def _verify_admin(credentials: HTTPBasicCredentials = Depends(_basic_auth)):
+    correct = secrets.compare_digest(
+        credentials.password.encode(),
+        settings.admin_password.encode(),
+    )
+    if not settings.admin_password or not correct:
+        raise HTTPException(
+            status_code=401,
+            detail="Unauthorized",
+            headers={"WWW-Authenticate": "Basic realm='Admin'"},
+        )
+
+@app.api_route("/admin/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+async def admin_proxy(path: str, request: Request, _=Depends(_verify_admin)):
+    """Proxy to Adminer DB UI — password protected via ADMIN_PASSWORD env var."""
+    adminer_url = f"http://localhost:8080/{path}"
+    params = str(request.url.query)
+    if params:
+        adminer_url += f"?{params}"
+    async with httpx.AsyncClient() as client:
+        proxied = await client.request(
+            method=request.method,
+            url=adminer_url,
+            headers={k: v for k, v in request.headers.items() if k.lower() != "host"},
+            content=await request.body(),
+        )
+    return Response(
+        content=proxied.content,
+        status_code=proxied.status_code,
+        headers=dict(proxied.headers),
+    )
 
 
 # Pydantic models

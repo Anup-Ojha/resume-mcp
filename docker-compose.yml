@@ -67,6 +67,7 @@ services:
       - PUBLIC_API_URL=${PUBLIC_API_URL}
       - WEBAPP_URL=${WEBAPP_URL:-http://localhost:8000/webapp/}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy
