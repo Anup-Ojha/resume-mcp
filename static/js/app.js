@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
     checkHealth();
     loadPDFList();
     setupEventListeners();
+    setupTryTabs();
+    tryLoadPDFs();
 });
 
 // Initialize CodeMirror
@@ -236,10 +238,155 @@ function formatDate(timestamp) {
     const now = new Date();
     const diffMs = now - date;
     const diffMins = Math.floor(diffMs / 60000);
-    
+
     if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins} min ago`;
     if (diffMins < 1440) return `${Math.floor(diffMins / 60)} hours ago`;
-    
+
     return date.toLocaleDateString();
+}
+
+// ── Try It Now ────────────────────────────────────────────────
+
+function setupTryTabs() {
+    document.querySelectorAll('.try-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.tab;
+            document.querySelectorAll('.try-tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.try-panel').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('tab-' + tab).classList.add('active');
+            if (tab === 'pdfs') tryLoadPDFs();
+        });
+    });
+}
+
+async function tryCreateResume() {
+    const uid      = document.getElementById('create-uid').value.trim();
+    const details  = document.getElementById('create-details').value.trim();
+    const filename = document.getElementById('create-filename').value.trim();
+    const btn      = document.getElementById('create-btn');
+    const spinner  = document.getElementById('create-spinner');
+    const result   = document.getElementById('create-result');
+
+    if (!uid)     { tryShowResult(result, 'error', 'Please enter your name / ID.'); return; }
+    if (!details) { tryShowResult(result, 'error', 'Please enter your details.'); return; }
+
+    btn.disabled = true;
+    spinner.classList.add('show');
+    result.style.display = 'none';
+
+    try {
+        const resp = await fetch('/api/v2/create-resume', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_details_text: details, user_id: uid })
+        });
+        const data = await resp.json();
+
+        if (resp.ok && data.success) {
+            const name = filename || data.filename;
+            tryShowResult(result, 'success',
+                `✅ Resume generated! <a href="/api/pdfs/${data.filename}" target="_blank" style="color:inherit;font-weight:600;text-decoration:underline">Download PDF →</a>`);
+            tryLoadPDFs();
+        } else {
+            tryShowResult(result, 'error', '❌ ' + (data.detail || data.message || 'Generation failed.'));
+        }
+    } catch (err) {
+        tryShowResult(result, 'error', '❌ Network error: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        spinner.classList.remove('show');
+    }
+}
+
+async function tryTailorResume() {
+    const uid      = document.getElementById('tailor-uid').value.trim();
+    const resume   = document.getElementById('tailor-resume').value.trim();
+    const jd       = document.getElementById('tailor-jd').value.trim();
+    const btn      = document.getElementById('tailor-btn');
+    const spinner  = document.getElementById('tailor-spinner');
+    const result   = document.getElementById('tailor-result');
+
+    if (!uid)    { tryShowResult(result, 'error', 'Please enter your name / ID.'); return; }
+    if (!resume) { tryShowResult(result, 'error', 'Please paste your current resume text.'); return; }
+    if (!jd)     { tryShowResult(result, 'error', 'Please paste the job description.'); return; }
+
+    btn.disabled = true;
+    spinner.classList.add('show');
+    result.style.display = 'none';
+
+    try {
+        const resp = await fetch('/api/v2/tailor-resume', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ resume_text: resume, jd_text: jd, user_id: uid })
+        });
+        const data = await resp.json();
+
+        if (resp.ok && data.success) {
+            tryShowResult(result, 'success',
+                `✅ Tailored resume ready! <a href="/api/pdfs/${data.filename}" target="_blank" style="color:inherit;font-weight:600;text-decoration:underline">Download PDF →</a>`);
+            tryLoadPDFs();
+        } else {
+            tryShowResult(result, 'error', '❌ ' + (data.detail || data.message || 'Tailoring failed.'));
+        }
+    } catch (err) {
+        tryShowResult(result, 'error', '❌ Network error: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        spinner.classList.remove('show');
+    }
+}
+
+async function tryLoadPDFs() {
+    const list = document.getElementById('try-pdf-list');
+    list.innerHTML = '<div class="empty-state"><div class="spin" style="margin:0 auto 12px"></div>Loading…</div>';
+
+    try {
+        const resp = await fetch('/api/pdfs');
+        const data = await resp.json();
+
+        if (data.success && data.pdfs && data.pdfs.length > 0) {
+            list.innerHTML = data.pdfs.map(pdf => `
+                <div class="pdf-row">
+                    <div class="pdf-row-icon">📄</div>
+                    <div class="pdf-row-info">
+                        <div class="pdf-row-name">${pdf.filename}</div>
+                        <div class="pdf-row-meta">${formatFileSize(pdf.size)} &middot; ${formatDate(pdf.modified)}</div>
+                    </div>
+                    <div class="pdf-row-btns">
+                        <button class="pdf-icon-btn" title="Download" onclick="window.open('/api/pdfs/${pdf.filename}','_blank')">⬇️</button>
+                        <button class="pdf-icon-btn del" title="Delete" onclick="tryDeletePDF('${pdf.filename}')">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            list.innerHTML = `
+                <div class="empty-state">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    No PDFs yet — create your first resume above!
+                </div>`;
+        }
+    } catch (err) {
+        list.innerHTML = '<div class="empty-state">Failed to load PDFs. Check your connection.</div>';
+    }
+}
+
+async function tryDeletePDF(filename) {
+    if (!confirm(`Delete ${filename}?`)) return;
+    try {
+        const resp = await fetch(`/api/pdfs/${filename}`, { method: 'DELETE' });
+        const data = await resp.json();
+        if (data.success) tryLoadPDFs();
+        else alert('Error deleting PDF: ' + (data.detail || data.message));
+    } catch (err) {
+        alert('Network error: ' + err.message);
+    }
+}
+
+function tryShowResult(el, type, html) {
+    el.className = 'try-result ' + type;
+    el.innerHTML = html;
+    el.style.display = '';
 }
