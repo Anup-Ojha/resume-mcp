@@ -204,7 +204,7 @@ async def get_valid_access_token(
     Return a valid access token for the user, refreshing if expired.
     Returns (success, access_token, message).
     """
-    row = db.get_google_tokens(telegram_user_id)
+    row = await db.async_get_google_tokens(telegram_user_id)
     if not row:
         return False, None, "Not logged in. Use /login to connect your Google account."
 
@@ -218,7 +218,7 @@ async def get_valid_access_token(
         ok, new_token, new_expiry = await refresh_access_token(refresh_token)
         if not ok or not new_token:
             return False, None, "Failed to refresh session. Please /login again."
-        db.update_access_token(telegram_user_id, new_token, new_expiry)
+        await db.async_update_access_token(telegram_user_id, new_token, new_expiry)
         access_token = new_token
 
     return True, access_token, "OK"

@@ -267,6 +267,12 @@ class PostgresDB:
                 "scopes":           tok.scopes,
             }
 
+    async def async_get_google_tokens(self, telegram_id: str) -> Optional[Dict[str, Any]]:
+        return await self._get_google_tokens(int(telegram_id))
+
+    async def async_update_access_token(self, telegram_id: str, new_token: str, new_expiry: str) -> bool:
+        return await self._update_access_token(int(telegram_id), new_token, new_expiry)
+
     def delete_google_tokens(self, telegram_id: str) -> bool:
         return _run(self._delete_google_tokens(int(telegram_id)))
 
