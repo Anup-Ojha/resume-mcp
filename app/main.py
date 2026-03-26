@@ -639,8 +639,11 @@ async def google_callback(code: str = Query(None), state: str = Query(None), err
     # ── Return appropriate response based on source ────────────────────────────
     if source == "webapp":
         # Mini App flow: return a page that calls Telegram.WebApp.sendData
-        # and notifies the parent Mini App via postMessage before closing
         return HTMLResponse(_webapp_callback_html(name, email))
+    elif source == "web":
+        # Web app flow: redirect back to homepage with success flag
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(f"/?auth=success&uid={telegram_user_id}")
     else:
         # Bot flow: plain success page with instruction to return to Telegram
         return HTMLResponse(_callback_html(
