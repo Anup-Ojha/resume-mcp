@@ -29,11 +29,14 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create all DB tables on startup if they don't exist
-    from app.database import engine
-    from app.models import Base
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("Database tables created/verified.")
+    try:
+        from app.database import engine
+        from app.models import Base
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("✅ Database tables created/verified.")
+    except Exception as e:
+        logger.error(f"⚠️  DB table creation failed (app will still start): {e}")
     yield
 
 

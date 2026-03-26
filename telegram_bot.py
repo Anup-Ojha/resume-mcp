@@ -69,9 +69,9 @@ TOKEN_COSTS = {"create": 2, "tailor": 1, "update": 1, "apply": 3}
 
 def require_registered(func):
     """
-    Decorator: block command if user hasn't signed in via Mini App.
+    Decorator: auto-register user via Telegram ID on first use.
+    No Gmail / Google login required for core resume features.
     Stores profile in context.user_data['_profile'] for downstream handlers.
-    Works on both direct commands and conversation entry points.
     """
     @functools.wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -80,21 +80,16 @@ def require_registered(func):
             return
         db = _get_db()
         if db:
-            profile = db.get_telegram_user(str(tg_user.id))
-            if not profile or not profile.get("is_registered"):
-                msg_obj = update.message or (update.callback_query and update.callback_query.message)
-                if msg_obj:
-                    keyboard = [[InlineKeyboardButton(
-                        "🚀 Sign in to get started",
-                        web_app=WebAppInfo(url=WEBAPP_URL)
-                    )]]
-                    await msg_obj.reply_text(
-                        "👋 Please sign in first to use ResumeBot.\n\n"
-                        "Tap the button below to sign in with Google.",
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
-                return
-            context.user_data["_profile"] = profile
+            # Auto-create + register user on first encounter — no Gmail needed
+            profile = db.get_or_create_telegram_user(
+                tg_user.id,
+                tg_user.first_name,
+                tg_user.username,
+            )
+            if profile and not profile.get("is_registered"):
+                db.mark_registered(str(tg_user.id))
+                profile["is_registered"] = True
+            context.user_data["_profile"] = profile or {}
         return await func(update, context)
     return wrapper
 
@@ -369,73 +364,49 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tg_user = update.effective_user
     db = _get_db()
 
-    # ── Check registration ─────────────────────────────────────────────────────
+    # ── Auto-register via Telegram ID (no Gmail required) ─────────────────────
+    tokens    = 5
+    plan      = "FREE"
+    name      = tg_user.first_name or "there"
+    reset_str = ""
+
     if db:
-        profile = db.get_telegram_user(str(tg_user.id))
-        if not profile or not profile.get("is_registered"):
-            keyboard = [[InlineKeyboardButton(
-                "🚀 Get Started — Sign in with Google",
-                web_app=WebAppInfo(url=WEBAPP_URL)
-            )]]
-            await update.message.reply_text(
-                "👋 Welcome to *ResumeBot*!\n\n"
-                "I create professional PDF resumes with AI and help you apply for jobs directly from Telegram.\n\n"
-                "Sign in with Google to get started. You'll receive *5 free tokens* every month.\n\n"
-                "_Tap the button below ↓_",
-                parse_mode="Markdown",
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
-            return
-
-        # ── Registered user: show full menu ───────────────────────────────────
-        tokens    = profile.get("tokens_remaining", 0)
-        plan      = profile.get("plan", "free").upper()
-        name      = profile.get("google_name") or tg_user.first_name or "there"
-        reset_str = ""
-        reset_at  = profile.get("tokens_reset_at")
-        if reset_at:
-            try:
-                from datetime import datetime, timezone
-                reset_dt = datetime.fromisoformat(reset_at)
-                if reset_dt.tzinfo is None:
-                    reset_dt = reset_dt.replace(tzinfo=timezone.utc)
-                days = (reset_dt - datetime.now(timezone.utc)).days
-                reset_str = f" | Resets in {max(0, days)}d"
-            except Exception:
-                pass
-
-        keyboard = [
-            [InlineKeyboardButton("📄 Create Resume",        callback_data="create")],
-            [InlineKeyboardButton("✏️ Update My Resume",     callback_data="update")],
-            [InlineKeyboardButton("🎯 Tailor Resume to JD",  callback_data="tailor")],
-            [InlineKeyboardButton("📧 Apply via Email",       callback_data="apply")],
-            [InlineKeyboardButton("📋 List My PDFs",         callback_data="list")],
-            [InlineKeyboardButton("💳 Token Balance",        callback_data="balance"),
-             InlineKeyboardButton("🔐 Connect Gmail",        callback_data="login")],
-            [InlineKeyboardButton("🔍 API Status",           callback_data="status")],
-        ]
-        await update.message.reply_text(
-            f"👋 Welcome back, *{name}*!\n"
-            f"🔑 *{tokens} token(s)*{reset_str}  |  Plan: {plan}\n\n"
-            "What would you like to do?",
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup(keyboard)
+        profile = db.get_or_create_telegram_user(
+            tg_user.id, tg_user.first_name, tg_user.username
         )
-        return
+        if profile and not profile.get("is_registered"):
+            db.mark_registered(str(tg_user.id))
+            profile["is_registered"] = True
 
-    # ── DB not available — fallback to plain menu ──────────────────────────────
+        if profile:
+            context.user_data["_profile"] = profile
+            tokens    = profile.get("tokens_remaining", 5)
+            plan      = profile.get("plan", "free").upper()
+            name      = profile.get("google_name") or tg_user.first_name or "there"
+            reset_at  = profile.get("tokens_reset_at")
+            if reset_at:
+                try:
+                    reset_dt = datetime.fromisoformat(reset_at)
+                    if reset_dt.tzinfo is None:
+                        reset_dt = reset_dt.replace(tzinfo=timezone.utc)
+                    days = (reset_dt - datetime.now(timezone.utc)).days
+                    reset_str = f" | Resets in {max(0, days)}d"
+                except Exception:
+                    pass
+
     keyboard = [
-        [InlineKeyboardButton("📄 Create Resume",           callback_data="create")],
-        [InlineKeyboardButton("✏️ Update My Resume",        callback_data="update")],
-        [InlineKeyboardButton("🎯 Tailor Resume to JD",     callback_data="tailor")],
-        [InlineKeyboardButton("📧 Apply via Email",          callback_data="apply")],
-        [InlineKeyboardButton("📋 List My PDFs",            callback_data="list")],
-        [InlineKeyboardButton("🔐 Connect Gmail",           callback_data="login")],
-        [InlineKeyboardButton("🔍 API Status",              callback_data="status")],
+        [InlineKeyboardButton("📄 Create Resume",        callback_data="create")],
+        [InlineKeyboardButton("✏️ Update My Resume",     callback_data="update")],
+        [InlineKeyboardButton("🎯 Tailor Resume to JD",  callback_data="tailor")],
+        [InlineKeyboardButton("📧 Apply via Email",       callback_data="apply")],
+        [InlineKeyboardButton("📋 List My PDFs",         callback_data="list")],
+        [InlineKeyboardButton("💳 Token Balance",        callback_data="balance"),
+         InlineKeyboardButton("🔐 Connect Gmail",        callback_data="login")],
+        [InlineKeyboardButton("🔍 API Status",           callback_data="status")],
     ]
     await update.message.reply_text(
-        "👋 Welcome to *ResumeBot*!\n\n"
-        "I generate professional PDF resumes and send them directly to you.\n\n"
+        f"👋 Welcome, *{name}*!\n"
+        f"🔑 *{tokens} token(s)*{reset_str}  |  Plan: {plan}\n\n"
         "What would you like to do?",
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)
