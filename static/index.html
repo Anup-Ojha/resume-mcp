@@ -3,60 +3,43 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Resume-MCP — AI Resume Generator | Modern Career Partner</title>
-  <meta name="description" content="Create ATS-optimised, professionally formatted PDF resumes in seconds using Gemini AI. Available via web, Telegram bot, and MCP server." />
+  <title>Resume-MCP — AI Resume Generator | ATS-Optimised in 30 Seconds</title>
+  <meta name="description" content="Create ATS-optimised, professionally formatted PDF resumes in seconds using Gemini AI. Available via web app, Telegram bot, and MCP server." />
 
-  <!-- SEO: Open Graph / Social sharing -->
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Resume-MCP — AI Resume Generator" />
   <meta property="og:description" content="Create ATS-optimised, professionally formatted PDF resumes in seconds using Gemini AI." />
   <meta property="og:url" content="https://resume-mcp.site/" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Resume-MCP — AI Resume Generator" />
-  <meta name="twitter:description" content="Create ATS-optimised resumes in seconds. Telegram bot + MCP server + web app." />
+  <meta name="twitter:description" content="Create ATS-optimised resumes in 30 seconds. Web app · Telegram bot · MCP server." />
 
-  <!-- Google Site Verification — replace with your actual code from Search Console -->
-  <!-- <meta name="google-site-verification" content="REPLACE_WITH_YOUR_CODE" /> -->
-
-  <!-- GA4 deferred to avoid blocking render -->
   <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-D43CDBHXJ2');</script>
 
-  <!-- JSON-LD Structured Data (helps Google understand the site) -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": "ResumeForge",
+    "name": "Resume-MCP",
     "url": "https://resume-mcp.site",
-    "description": "AI-powered resume generator. Create ATS-optimised, professionally formatted PDF resumes in seconds via web app or Telegram bot.",
+    "description": "AI-powered resume generator. Create ATS-optimised, professionally formatted PDF resumes in seconds via web app, Telegram bot, or MCP server.",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Any",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "USD"
-    },
-    "featureList": [
-      "AI-powered resume generation",
-      "ATS-optimised PDF output",
-      "Job description tailoring",
-      "Telegram bot interface",
-      "Email application automation"
-    ]
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
   }
   </script>
 
-  <!-- Non-blocking font loading — eliminates render-blocking penalty -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" /></noscript>
+
   <style>
-    /* ── Reset ────────────────────────────────────────────────── */
+    /* ── Reset ──────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; font-size: 16px; }
 
-    /* ── Tokens ───────────────────────────────────────────────── */
+    /* ── Tokens ─────────────────────────────────────────────────── */
     :root {
       --bg:         #ffffff;
       --bg-2:       #f7f8fa;
@@ -110,7 +93,7 @@
       --sh-lg:      0 12px 48px rgba(0,0,0,.6);
     }
 
-    /* ── Thin scrollbar ───────────────────────────────────────── */
+    /* ── Scrollbar ──────────────────────────────────────────────── */
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 100px; }
@@ -119,10 +102,8 @@
 
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--bg);
-      color: var(--text-1);
-      line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
+      background: var(--bg); color: var(--text-1);
+      line-height: 1.6; -webkit-font-smoothing: antialiased;
       transition: background .25s, color .25s;
     }
 
@@ -130,20 +111,17 @@
     a:hover { text-decoration: underline; }
     nav a:hover, nav a:focus { text-decoration: none !important; }
     .logo:hover { text-decoration: none !important; }
+
     code {
       font-family: 'JetBrains Mono', monospace;
-      font-size: .85em;
-      background: var(--bg-3);
-      padding: 2px 6px;
-      border-radius: 5px;
-      color: var(--text-1);
+      font-size: .85em; background: var(--bg-3);
+      padding: 2px 6px; border-radius: 5px; color: var(--text-1);
     }
 
-    /* ── Nav ──────────────────────────────────────────────────── */
+    /* ── Nav ────────────────────────────────────────────────────── */
     nav {
       position: sticky; top: 0; z-index: 200;
-      height: var(--nav-h);
-      background: var(--bg);
+      height: var(--nav-h); background: var(--bg);
       border-bottom: 1px solid var(--border);
       display: flex; align-items: center;
       padding: 0 32px; gap: 8px;
@@ -156,7 +134,6 @@
       color: var(--text-1); text-decoration: none;
       flex-shrink: 0; margin-right: 16px;
     }
-    .logo:hover { text-decoration: none; }
     .logo svg { flex-shrink: 0; }
 
     .nav-links {
@@ -168,19 +145,30 @@
       border-radius: 7px; text-decoration: none;
       transition: color .15s, background .15s;
     }
-    .nav-links a:hover { color: var(--text-1); background: var(--bg-3); text-decoration: none; }
+    .nav-links a:hover { color: var(--text-1); background: var(--bg-3); }
 
     .nav-end { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 
-    .btn-sm {
-      font-size: .8125rem; font-weight: 500;
-      padding: 6px 14px; border-radius: 7px;
-      border: 1px solid var(--border-2); background: var(--bg-2);
-      color: var(--text-2); cursor: pointer;
+    .btn-primary {
+      background: var(--accent); color: #fff;
+      padding: 10px 22px; border-radius: 8px;
+      font-weight: 600; font-size: .9rem;
+      border: none; cursor: pointer;
       transition: all .15s; text-decoration: none;
-      display: inline-flex; align-items: center; gap: 6px;
+      display: inline-flex; align-items: center; gap: 7px;
+      box-shadow: 0 2px 10px rgba(26,110,248,.3);
     }
-    .btn-sm:hover { background: var(--bg-3); color: var(--text-1); text-decoration: none; }
+    .btn-primary:hover { background: var(--accent-d); color: #fff; text-decoration: none; transform: translateY(-1px); }
+
+    .btn-outline {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: transparent; color: var(--text-2);
+      font-weight: 500; font-size: .9375rem;
+      padding: 12px 24px; border-radius: 9px;
+      border: 1px solid var(--border-2); cursor: pointer;
+      transition: all .15s; text-decoration: none;
+    }
+    .btn-outline:hover { background: var(--bg-2); color: var(--text-1); text-decoration: none; }
 
     .theme-btn {
       width: 34px; height: 34px; border-radius: 7px;
@@ -210,16 +198,15 @@
       .hide-mob { display: none !important; }
     }
 
-    /* ── Shared Layout ────────────────────────────────────────── */
-    .wrap     { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
-    .wrap-sm  { max-width: 780px;  margin: 0 auto; padding: 0 24px; }
-    .sec      { padding: 88px 0; }
-    .sec-alt  { background: var(--bg-2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    /* ── Layout ─────────────────────────────────────────────────── */
+    .wrap    { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+    .wrap-sm { max-width: 780px;  margin: 0 auto; padding: 0 24px; }
+    .sec     { padding: 88px 0; }
+    .sec-alt { background: var(--bg-2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 
     .eyebrow {
       font-size: .6875rem; font-weight: 700; letter-spacing: .1em;
-      text-transform: uppercase; color: var(--accent);
-      margin-bottom: 10px;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
     }
 
     h2 {
@@ -233,20 +220,18 @@
       max-width: 520px; margin-bottom: 40px;
     }
 
-    /* ── Hero ─────────────────────────────────────────────────── */
+    /* ── Hero ───────────────────────────────────────────────────── */
     #hero {
       padding: 96px 0 72px; text-align: center;
       position: relative; overflow: hidden;
     }
 
     #hero::before {
-      content: '';
-      position: absolute; inset: 0; pointer-events: none;
+      content: ''; position: absolute; inset: 0; pointer-events: none;
       background-image:
         linear-gradient(var(--border) 1px, transparent 1px),
         linear-gradient(90deg, var(--border) 1px, transparent 1px);
-      background-size: 44px 44px;
-      opacity: .4;
+      background-size: 44px 44px; opacity: .4;
       mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
     }
     [data-theme="dark"] #hero::before { opacity: .18; }
@@ -280,100 +265,30 @@
       gap: 12px; position: relative; margin-bottom: 56px;
     }
 
-    .btn-primary {
+    .hero-btn-primary {
       display: inline-flex; align-items: center; gap: 8px;
       background: var(--accent); color: #fff;
       font-weight: 600; font-size: .9375rem;
-      padding: 12px 26px; border-radius: 9px;
+      padding: 14px 30px; border-radius: 9px;
       border: none; cursor: pointer;
       transition: background .15s, transform .12s, box-shadow .15s;
       text-decoration: none; box-shadow: 0 2px 12px rgba(26,110,248,.35);
     }
-    .btn-primary:hover { background: var(--accent-d); color: #fff; text-decoration: none; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(26,110,248,.45); }
+    .hero-btn-primary:hover { background: var(--accent-d); color: #fff; text-decoration: none; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(26,110,248,.45); }
 
-    .btn-outline {
-      display: inline-flex; align-items: center; gap: 8px;
-      background: transparent; color: var(--text-2);
-      font-weight: 500; font-size: .9375rem;
-      padding: 12px 24px; border-radius: 9px;
-      border: 1px solid var(--border-2); cursor: pointer;
-      transition: all .15s; text-decoration: none;
-    }
-    .btn-outline:hover { background: var(--bg-2); color: var(--text-1); text-decoration: none; }
-
-    /* ── Service Cards (hero bottom) ─────────────────────────── */
-    .services-strip {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
-      position: relative;
-      text-align: left;
-    }
-
-    @media(max-width: 720px) { .services-strip { grid-template-columns: 1fr; } }
-
-    .svc-card {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--r-lg);
-      padding: 24px;
-      display: flex; flex-direction: column; gap: 12px;
-      transition: border-color .2s, box-shadow .2s, transform .2s;
-      position: relative; overflow: hidden;
-    }
-    .svc-card::after {
-      content: '';
-      position: absolute; inset: 0;
-      background: linear-gradient(135deg, var(--accent-bg) 0%, transparent 60%);
-      opacity: 0; transition: opacity .3s;
-    }
-    .svc-card:hover { border-color: var(--accent); box-shadow: var(--sh-md); transform: translateY(-2px); }
-    .svc-card:hover::after { opacity: 1; }
-
-    .svc-icon {
-      width: 42px; height: 42px; border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; font-size: 20px; position: relative; z-index: 1;
-    }
-
-    .svc-card h3 {
-      font-size: 1rem; font-weight: 600; color: var(--text-1);
-      position: relative; z-index: 1;
-    }
-
-    .svc-card p {
-      font-size: .875rem; color: var(--text-2); line-height: 1.6;
-      position: relative; z-index: 1; flex: 1;
-    }
-
-    .svc-link {
-      display: inline-flex; align-items: center; gap: 5px;
-      font-size: .8125rem; font-weight: 600; color: var(--accent);
-      position: relative; z-index: 1; text-decoration: none;
-      margin-top: auto;
-    }
-    .svc-link:hover { text-decoration: underline; }
-    .svc-link svg { transition: transform .15s; }
-    .svc-link:hover svg { transform: translateX(3px); }
-
-    /* ── Stats ────────────────────────────────────────────────── */
+    /* ── Stats ──────────────────────────────────────────────────── */
     #stats { padding: 48px 0; }
 
     .stats-row {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 1px;
-      background: var(--border);
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 1px; background: var(--border);
       border: 1px solid var(--border);
-      border-radius: var(--r-lg);
-      overflow: hidden;
+      border-radius: var(--r-lg); overflow: hidden;
     }
-
     @media(max-width: 640px) { .stats-row { grid-template-columns: 1fr 1fr; } }
 
     .stat {
-      background: var(--bg-2);
-      padding: 28px 24px;
+      background: var(--bg-2); padding: 28px 24px;
       display: flex; flex-direction: column; gap: 4px;
       transition: background .15s;
     }
@@ -394,118 +309,75 @@
       letter-spacing: -.035em; line-height: 1; color: var(--text-1);
     }
     .stat-n.dim { opacity: .25; }
+    .stat-l { font-size: .8rem; color: var(--text-3); font-weight: 500; margin-top: 2px; }
 
-    .stat-l {
-      font-size: .8rem; color: var(--text-3); font-weight: 500; margin-top: 2px;
-    }
-
-    /* ── "Start using" quick-access ───────────────────────────── */
-    #start { padding: 88px 0; }
-
-    .start-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-    }
-    @media(max-width:720px) { .start-grid { grid-template-columns: 1fr; } }
-
-    .start-card {
-      border: 1px solid var(--border);
-      border-radius: var(--r-lg);
-      overflow: hidden;
-    }
-
-    .start-card-head {
-      padding: 22px 24px;
-      border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; gap: 14px;
-      background: var(--bg-2);
-    }
-
-    .start-card-icon {
-      width: 40px; height: 40px; border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; font-size: 18px;
-    }
-
-    .start-card-head h3 {
-      font-size: .9375rem; font-weight: 600; color: var(--text-1); margin-bottom: 2px;
-    }
-    .start-card-head p { font-size: .8125rem; color: var(--text-3); }
-
-    .start-card-body { padding: 20px 24px; }
-
-    .cmd-list { display: flex; flex-direction: column; gap: 10px; }
-
-    .cmd-row {
-      display: flex; align-items: flex-start; gap: 12px;
-    }
-
-    .cmd-tag {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: .75rem; font-weight: 600;
-      background: var(--accent-bg); color: var(--accent);
-      padding: 3px 9px; border-radius: 5px;
-      flex-shrink: 0; margin-top: 2px;
-      border: 1px solid var(--accent-b);
-      white-space: nowrap;
-    }
-
-    .cmd-desc { font-size: .8125rem; color: var(--text-2); line-height: 1.5; }
-
-    /* ── All features ─────────────────────────────────────────── */
+    /* ── Feature Cards ──────────────────────────────────────────── */
     #features { padding: 88px 0; }
 
-    .feat-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-      gap: 16px;
+    .feat-grid-3 {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
     }
+    @media(max-width: 860px) { .feat-grid-3 { grid-template-columns: 1fr; } }
+    @media(min-width: 561px) and (max-width: 860px) { .feat-grid-3 { grid-template-columns: 1fr 1fr; } }
 
-    .feat {
-      background: var(--bg-2);
-      border: 1px solid var(--border);
-      border-radius: var(--r-lg);
-      padding: 26px;
+    .feat-card {
+      background: var(--bg-2); border: 1px solid var(--border);
+      border-radius: var(--r-lg); padding: 28px;
+      display: flex; flex-direction: column; gap: 12px;
       transition: border-color .2s, box-shadow .2s, transform .2s;
+      position: relative; overflow: hidden;
     }
-    .feat:hover { border-color: var(--accent); box-shadow: var(--sh-sm); transform: translateY(-2px); }
+    .feat-card::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, var(--accent-bg) 0%, transparent 60%);
+      opacity: 0; transition: opacity .3s;
+    }
+    .feat-card:hover { border-color: var(--accent); box-shadow: var(--sh-md); transform: translateY(-2px); }
+    .feat-card:hover::after { opacity: 1; }
 
     .feat-icon {
-      width: 40px; height: 40px; border-radius: 9px;
+      width: 44px; height: 44px; border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
-      margin-bottom: 14px; font-size: 19px;
+      flex-shrink: 0; font-size: 21px; position: relative; z-index: 1;
     }
 
-    .feat h3 { font-size: .9375rem; font-weight: 600; color: var(--text-1); margin-bottom: 7px; }
-    .feat p  { font-size: .8375rem; color: var(--text-2); line-height: 1.65; }
+    .feat-card h3 {
+      font-size: 1rem; font-weight: 600; color: var(--text-1);
+      position: relative; z-index: 1;
+    }
+    .feat-card p {
+      font-size: .875rem; color: var(--text-2); line-height: 1.65;
+      position: relative; z-index: 1; flex: 1;
+    }
 
-    /* ── How it works ─────────────────────────────────────────── */
+    .feat-link {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: .8125rem; font-weight: 600; color: var(--accent);
+      position: relative; z-index: 1; text-decoration: none; margin-top: auto;
+    }
+    .feat-link:hover { text-decoration: underline; }
+    .feat-link svg { transition: transform .15s; }
+    .feat-link:hover svg { transform: translateX(3px); }
+
+    .features-footer { text-align: center; margin-top: 36px; }
+
+    /* ── How it works (3 steps horizontal) ─────────────────────── */
     #how { padding: 88px 0; }
 
-    .steps {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      position: relative; gap: 0;
+    .steps-3 {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 0; position: relative; margin-top: 48px;
     }
-
-    .steps::before {
-      content: '';
-      position: absolute;
-      top: 24px; left: calc(100% / 8); right: calc(100% / 8);
-      height: 1px; background: var(--border);
-      z-index: 0;
+    .steps-3::before {
+      content: ''; position: absolute;
+      top: 23px; left: calc(100% / 6); right: calc(100% / 6);
+      height: 1px; background: var(--border); z-index: 0;
     }
+    @media(max-width: 640px) { .steps-3 { grid-template-columns: 1fr; } .steps-3::before { display: none; } }
 
-    @media(max-width: 720px) {
-      .steps { grid-template-columns: 1fr 1fr; }
-      .steps::before { display: none; }
-    }
-    @media(max-width: 480px) { .steps { grid-template-columns: 1fr; } }
-
-    .step {
-      padding: 0 20px 0; display: flex;
-      flex-direction: column; gap: 12px;
+    .step-3 {
+      padding: 0 24px; display: flex; flex-direction: column; gap: 14px;
+      align-items: flex-start;
     }
 
     .step-bubble {
@@ -514,29 +386,57 @@
       font-size: .875rem; font-weight: 700;
       background: var(--bg); border: 2px solid var(--border);
       color: var(--text-3); position: relative; z-index: 1;
-      transition: all .2s;
+      transition: all .2s; flex-shrink: 0;
     }
-
-    .step:hover .step-bubble {
+    .step-3:hover .step-bubble {
       background: var(--accent); border-color: var(--accent);
       color: #fff; box-shadow: 0 0 0 6px var(--accent-bg);
     }
 
-    .step h3 { font-size: .9rem; font-weight: 600; color: var(--text-1); margin-top: 12px; }
-    .step p  { font-size: .8125rem; color: var(--text-2); line-height: 1.6; }
+    .step-3 h3 { font-size: .9375rem; font-weight: 600; color: var(--text-1); margin-top: 4px; }
+    .step-3 p  { font-size: .8375rem; color: var(--text-2); line-height: 1.65; }
 
-    /* ── MCP ──────────────────────────────────────────────────── */
-    #mcp { padding: 88px 0; }
+    /* ── Channels ───────────────────────────────────────────────── */
+    #channels { padding: 88px 0; }
 
-    .mcp-layout {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 48px; align-items: center;
+    .channels-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
     }
-    @media(max-width: 720px) { .mcp-layout { grid-template-columns: 1fr; } }
+    @media(max-width: 720px) { .channels-grid { grid-template-columns: 1fr; } }
 
-    .mcp-copy p { font-size: .9375rem; color: var(--text-2); line-height: 1.75; margin-bottom: 16px; }
+    .channel-card {
+      border: 1px solid var(--border); border-radius: var(--r-lg);
+      overflow: hidden;
+    }
 
-    .pill-group { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 20px; }
+    .channel-head {
+      padding: 22px 24px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 14px;
+      background: var(--bg-2);
+    }
+    .channel-icon {
+      width: 42px; height: 42px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; font-size: 20px;
+    }
+    .channel-head h3 { font-size: .9375rem; font-weight: 600; color: var(--text-1); margin-bottom: 2px; }
+    .channel-head p  { font-size: .8125rem; color: var(--text-3); }
+
+    .channel-body { padding: 22px 24px; }
+
+    .cmd-list { display: flex; flex-direction: column; gap: 9px; margin-bottom: 20px; }
+    .cmd-row  { display: flex; align-items: flex-start; gap: 12px; }
+    .cmd-tag  {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .75rem; font-weight: 600;
+      background: var(--accent-bg); color: var(--accent);
+      padding: 3px 9px; border-radius: 5px;
+      flex-shrink: 0; margin-top: 1px;
+      border: 1px solid var(--accent-b); white-space: nowrap;
+    }
+    .cmd-desc { font-size: .8125rem; color: var(--text-2); line-height: 1.5; }
+
+    .pill-group { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 20px; }
     .pill {
       font-size: .75rem; font-weight: 500;
       padding: 4px 11px; border-radius: 100px;
@@ -544,95 +444,27 @@
       border: 1px solid var(--border);
     }
 
-    .code-win {
-      background: var(--bg-2);
-      border: 1px solid var(--border);
-      border-radius: var(--r-lg);
-      overflow: hidden; box-shadow: var(--sh-md);
+    /* ── CTA Banner ─────────────────────────────────────────────── */
+    #cta {
+      padding: 88px 0; text-align: center;
     }
 
-    .code-bar {
-      padding: 11px 16px; border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: space-between;
-      background: var(--bg-3);
+    .cta-inner {
+      background: var(--accent-bg); border: 1px solid var(--accent-b);
+      border-radius: var(--r-lg); padding: 64px 40px;
+      max-width: 700px; margin: 0 auto;
     }
+    [data-theme="dark"] .cta-inner { background: var(--bg-2); border-color: var(--border); }
 
-    .dots { display: flex; gap: 5px; }
-    .dots span { width: 10px; height: 10px; border-radius: 50%; }
-    .dots span:nth-child(1) { background: #ff5f57; }
-    .dots span:nth-child(2) { background: #febc2e; }
-    .dots span:nth-child(3) { background: #28c840; }
+    .cta-inner h2 { color: var(--text-1); margin-bottom: 12px; }
+    .cta-inner p  { color: var(--text-2); font-size: 1rem; line-height: 1.7; margin-bottom: 32px; max-width: 480px; margin-left: auto; margin-right: auto; }
 
-    .code-fn { font-family: 'JetBrains Mono', monospace; font-size: .75rem; color: var(--text-3); }
+    @media(max-width: 640px) { .cta-inner { padding: 48px 24px; } }
 
-    .code-body {
-      padding: 22px; font-family: 'JetBrains Mono', monospace;
-      font-size: .8rem; line-height: 1.85; color: var(--text-2);
-      overflow-x: auto;
-    }
-    .ck { color: var(--accent); }
-    .cs { color: var(--green); }
-    .cc { color: var(--text-3); font-style: italic; }
-    .cv { color: var(--amber); }
-    .cp { color: var(--purple); }
-
-    /* ── API table ────────────────────────────────────────────── */
-    #api { padding: 88px 0; }
-
-    .tbl-wrap {
-      border: 1px solid var(--border); border-radius: var(--r-lg);
-      overflow: hidden; overflow-x: auto;
-    }
-
-    table { width: 100%; border-collapse: collapse; font-size: .875rem; min-width: 560px; }
-
-    thead th {
-      text-align: left; padding: 11px 18px;
-      background: var(--bg-3); color: var(--text-3);
-      font-size: .6875rem; font-weight: 700;
-      text-transform: uppercase; letter-spacing: .06em;
-      border-bottom: 1px solid var(--border);
-    }
-
-    tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
-    tbody tr:last-child { border-bottom: none; }
-    tbody tr:hover { background: var(--bg-2); }
-    tbody td { padding: 13px 18px; color: var(--text-2); vertical-align: top; }
-
-    .badge-m {
-      display: inline-block;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: .6rem; font-weight: 700;
-      padding: 2px 6px; border-radius: 4px; margin-right: 7px;
-    }
-    .m-get  { background: var(--green-bg);  color: var(--green); }
-    .m-post { background: var(--accent-bg); color: var(--accent); }
-    .m-del  { background: #fff1f2; color: var(--red); }
-    [data-theme="dark"] .m-del { background: #1c0505; }
-
-    .route-txt { font-family: 'JetBrains Mono', monospace; font-size: .8125rem; color: var(--text-1); }
-
-    /* ── Status bar ───────────────────────────────────────────── */
-    .sbar {
-      display: flex; align-items: center; gap: 24px;
-      padding: 13px 20px;
-      background: var(--bg-2); border: 1px solid var(--border);
-      border-radius: var(--r-md); font-size: .8125rem;
-      flex-wrap: wrap; margin-top: 20px;
-    }
-    .sbar-item { display: flex; align-items: center; gap: 7px; color: var(--text-2); }
-    .dot {
-      width: 7px; height: 7px; border-radius: 50%; background: var(--text-3);
-    }
-    .dot.ok   { background: var(--green); box-shadow: 0 0 0 3px var(--green-bg); }
-    .dot.warn { background: var(--amber); box-shadow: 0 0 0 3px var(--amber-bg); }
-    .sbar-time { margin-left: auto; font-size: .75rem; color: var(--text-3); }
-
-    /* ── Footer ───────────────────────────────────────────────── */
+    /* ── Footer ─────────────────────────────────────────────────── */
     footer {
       border-top: 1px solid var(--border);
-      background: var(--bg-2);
-      padding: 36px 0;
+      background: var(--bg-2); padding: 36px 0;
     }
     .foot-in {
       max-width: 1120px; margin: 0 auto; padding: 0 24px;
@@ -640,301 +472,36 @@
       justify-content: space-between; gap: 20px; flex-wrap: wrap;
     }
     .foot-logo { font-weight: 700; color: var(--text-1); display: flex; align-items: center; gap: 8px; font-size: .9375rem; }
-    .foot-nav { display: flex; gap: 20px; flex-wrap: wrap; }
+    .foot-nav  { display: flex; gap: 20px; flex-wrap: wrap; }
     .foot-nav a { font-size: .8125rem; color: var(--text-3); transition: color .15s; text-decoration: none; }
     .foot-nav a:hover { color: var(--text-1); }
     .foot-copy { font-size: .8125rem; color: var(--text-3); }
-    @media(max-width:600px) { .foot-in { flex-direction: column; align-items: flex-start; } .foot-copy { display: none; } }
+    @media(max-width: 600px) { .foot-in { flex-direction: column; align-items: flex-start; } .foot-copy { display: none; } }
 
-    /* ── Divider ──────────────────────────────────────────────── */
-    .hr { height: 1px; background: var(--border); }
-
-    /* ── Responsive tweaks ────────────────────────────────────── */
+    /* ── Responsive ─────────────────────────────────────────────── */
     @media(max-width: 768px) {
-      .sec { padding: 64px 0; }
-      #hero { padding: 72px 0 56px; }
+      .sec   { padding: 64px 0; }
+      #hero  { padding: 72px 0 56px; }
       #stats { padding: 36px 0; }
-    }
-
-    /* ── Try It Now ──────────────────────────────────────────── */
-    #try { padding: 88px 0; }
-
-    .try-shell {
-      background: var(--bg-2);
-      border: 1px solid var(--border);
-      border-radius: var(--r-lg);
-      overflow: hidden;
-      box-shadow: var(--sh-md);
-    }
-
-    .try-tabs {
-      display: flex;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg-3);
-      overflow-x: auto;
-    }
-
-    .try-tab-btn {
-      flex-shrink: 0;
-      padding: 14px 22px;
-      font-size: .875rem; font-weight: 500;
-      color: var(--text-3);
-      background: transparent; border: none;
-      border-bottom: 2px solid transparent;
-      cursor: pointer;
-      transition: color .15s, border-color .15s, background .15s;
-      display: flex; align-items: center; gap: 7px;
-    }
-    .try-tab-btn:hover { color: var(--text-1); background: var(--bg-2); }
-    .try-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--bg-2); }
-
-    .try-panel { display: none; padding: 32px; }
-    .try-panel.active { display: block; }
-
-    .form-group { margin-bottom: 20px; }
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
-    @media(max-width:640px) { .form-row { grid-template-columns: 1fr; } }
-
-    .form-label {
-      display: block;
-      font-size: .8125rem; font-weight: 600;
-      color: var(--text-2); margin-bottom: 7px;
-    }
-    .form-label span { font-weight: 400; color: var(--text-3); margin-left: 4px; }
-
-    .form-input, .form-textarea, .form-select {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border-2);
-      border-radius: var(--r-sm);
-      color: var(--text-1);
-      font-family: 'Inter', sans-serif;
-      font-size: .875rem;
-      padding: 10px 13px;
-      transition: border-color .15s, box-shadow .15s;
-      outline: none;
-    }
-    .form-input:focus, .form-textarea:focus, .form-select:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-b);
-    }
-    .form-textarea { resize: vertical; line-height: 1.6; font-size: .8125rem; }
-
-    .form-hint { font-size: .75rem; color: var(--text-3); margin-top: 5px; line-height: 1.5; }
-
-    .try-actions { display: flex; align-items: center; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
-
-    .btn-generate {
-      display: inline-flex; align-items: center; gap: 8px;
-      background: var(--accent); color: #fff;
-      font-weight: 600; font-size: .875rem;
-      padding: 11px 22px; border-radius: 8px;
-      border: none; cursor: pointer;
-      transition: background .15s, transform .1s;
-      box-shadow: 0 2px 10px rgba(26,110,248,.3);
-    }
-    .btn-generate:hover { background: var(--accent-d); transform: translateY(-1px); }
-    .btn-generate:disabled { opacity: .5; cursor: not-allowed; transform: none; }
-
-    .btn-ghost {
-      display: inline-flex; align-items: center; gap: 7px;
-      background: transparent; color: var(--text-3);
-      font-weight: 500; font-size: .8125rem;
-      padding: 10px 16px; border-radius: 8px;
-      border: 1px solid var(--border); cursor: pointer;
-      transition: all .15s;
-    }
-    .btn-ghost:hover { background: var(--bg-3); color: var(--text-1); }
-
-    .try-result {
-      margin-top: 20px; padding: 16px;
-      border-radius: var(--r-sm); font-size: .875rem; display: none;
-    }
-    .try-result.success {
-      display: flex; align-items: flex-start; gap: 10px;
-      background: var(--green-bg); border: 1px solid rgba(22,163,74,.2); color: var(--green);
-    }
-    .try-result.error {
-      display: flex; align-items: flex-start; gap: 10px;
-      background: #fff1f2; border: 1px solid rgba(220,38,38,.2); color: var(--red);
-    }
-    [data-theme="dark"] .try-result.error { background: #1c0505; }
-
-    .try-spinner { display: none; align-items: center; gap: 10px; color: var(--text-3); font-size: .875rem; margin-top: 20px; }
-    .try-spinner.show { display: flex; }
-    .spin {
-      width: 18px; height: 18px; border-radius: 50%;
-      border: 2px solid var(--border); border-top-color: var(--accent);
-      animation: spin .7s linear infinite; flex-shrink: 0;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .pdf-list-wrap { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
-    .pdf-row {
-      display: flex; align-items: center; gap: 12px;
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: var(--r-sm); padding: 12px 16px; transition: border-color .15s;
-    }
-    .pdf-row:hover { border-color: var(--accent); }
-    .pdf-row-icon { font-size: 20px; flex-shrink: 0; }
-    .pdf-row-info { flex: 1; min-width: 0; }
-    .pdf-row-name { font-size: .875rem; font-weight: 500; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .pdf-row-meta { font-size: .75rem; color: var(--text-3); margin-top: 1px; }
-    .pdf-row-btns { display: flex; gap: 6px; flex-shrink: 0; }
-    .pdf-icon-btn {
-      width: 32px; height: 32px; border-radius: 6px;
-      border: 1px solid var(--border); background: var(--bg-2);
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      font-size: 14px; transition: all .15s; color: var(--text-2);
-    }
-    .pdf-icon-btn:hover { background: var(--bg-3); color: var(--text-1); border-color: var(--border-2); }
-    .pdf-icon-btn.del:hover { background: #fff1f2; border-color: var(--red); color: var(--red); }
-    [data-theme="dark"] .pdf-icon-btn.del:hover { background: #1c0505; }
-
-    .empty-state { text-align: center; padding: 48px 24px; color: var(--text-3); font-size: .875rem; }
-    .empty-state svg { display: block; margin: 0 auto 14px; opacity: .35; }
-    .section-sub { font-size: .8125rem; color: var(--text-3); margin-bottom: 24px; line-height: 1.6; }
-
-    /* ── Auth Wall ────────────────────────────────────────────── */
-    .auth-wall {
-      background: var(--bg-2); border: 1px solid var(--border);
-      border-radius: var(--r-lg); padding: 64px 24px;
-      text-align: center; box-shadow: var(--sh-md);
-    }
-    .auth-wall-icon { font-size: 48px; margin-bottom: 20px; }
-    .auth-wall h3 { font-size: 1.5rem; font-weight: 700; margin-bottom: 12px; }
-    .auth-wall p { color: var(--text-2); max-width: 440px; margin: 0 auto 28px; line-height: 1.7; }
-    .auth-wall-note { font-size: .8rem; color: var(--text-3); margin-top: 14px; }
-
-    .btn-google {
-      display: inline-flex; align-items: center; gap: 10px;
-      background: var(--bg); color: var(--text-1);
-      font-weight: 600; font-size: .9375rem;
-      padding: 13px 28px; border-radius: 9px;
-      border: 1px solid var(--border-2); cursor: pointer;
-      transition: all .15s; box-shadow: var(--sh-sm);
-    }
-    .btn-google:hover { background: var(--bg-3); box-shadow: var(--sh-md); transform: translateY(-1px); }
-
-    /* ── Dashboard user bar ───────────────────────────────────── */
-    .dash-user-bar {
-      display: flex; align-items: center; justify-content: space-between;
-      background: var(--bg-2); border: 1px solid var(--border);
-      border-radius: var(--r-md); padding: 16px 20px;
-      margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
-    }
-    .dash-user-info { display: flex; align-items: center; gap: 12px; }
-    .dash-avatar {
-      width: 40px; height: 40px; border-radius: 50%;
-      object-fit: cover; border: 2px solid var(--border);
-      background: var(--bg-3);
-    }
-    .dash-name { font-weight: 600; font-size: .9375rem; color: var(--text-1); }
-    .dash-email { font-size: .8rem; color: var(--text-3); margin-top: 1px; }
-    .dash-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .dash-token-badge {
-      display: inline-flex; align-items: center; gap: 5px;
-      background: var(--accent-bg); color: var(--accent);
-      border: 1px solid var(--accent-b);
-      font-size: .8rem; font-weight: 600;
-      padding: 4px 12px; border-radius: 100px;
-    }
-    .dash-plan {
-      display: inline-flex; font-size: .75rem; font-weight: 700;
-      padding: 4px 10px; border-radius: 100px;
-      background: var(--green-bg); color: var(--green);
-      border: 1px solid rgba(22,163,74,.2);
-      letter-spacing: .05em;
-    }
-
-    /* ── Nav user chip ────────────────────────────────────────── */
-    .nav-user-chip {
-      display: flex; align-items: center; gap: 7px;
-      background: var(--bg-2); border: 1px solid var(--border);
-      border-radius: 8px; padding: 5px 12px 5px 6px;
-      cursor: pointer; transition: background .15s;
-    }
-    .nav-user-chip:hover { background: var(--bg-3); }
-    .nav-avatar {
-      width: 24px; height: 24px; border-radius: 50%;
-      object-fit: cover; background: var(--bg-3); flex-shrink: 0;
-    }
-    .nav-user-name { font-size: .8125rem; font-weight: 500; color: var(--text-1); max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .nav-token-badge {
-      font-size: .7rem; font-weight: 700;
-      background: var(--accent-bg); color: var(--accent);
-      padding: 2px 7px; border-radius: 100px;
-      border: 1px solid var(--accent-b);
-    }
-    .btn-signout {
-      font-size: .75rem; font-weight: 500; color: var(--text-3);
-      background: transparent; border: none; cursor: pointer; padding: 2px 4px;
-      transition: color .15s;
-    }
-    .btn-signout:hover { color: var(--red); }
-
-    /* ── Token balance panel ──────────────────────────────────── */
-    .balance-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 14px; margin-bottom: 24px;
-    }
-    .balance-card {
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: var(--r-md); padding: 20px;
-      text-align: center;
-    }
-    .balance-card-num { font-size: 2rem; font-weight: 700; color: var(--text-1); }
-    .balance-card-label { font-size: .8rem; color: var(--text-3); margin-top: 4px; }
-    .op-cost-row {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 0; border-bottom: 1px solid var(--border);
-      font-size: .875rem;
-    }
-    .op-cost-row:last-child { border-bottom: none; }
-    .op-cost-badge {
-      font-size: .75rem; font-weight: 700;
-      background: var(--accent-bg); color: var(--accent);
-      padding: 2px 8px; border-radius: 6px;
     }
   </style>
 </head>
 <body>
-<style>.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}</style>
 
 <!-- NAV -->
 <nav>
   <a href="/" class="logo" aria-label="Resume-MCP">
-    <img src="/static/logo.svg" width="30" height="30" alt="Resume-MCP logo" style="flex-shrink:0"/>
+    <img src="/static/logo.svg" width="30" height="30" alt="Resume-MCP logo" style="flex-shrink:0" />
     Resume-MCP
   </a>
 
   <div class="nav-links" id="navLinks">
-    <a href="/app">Try It</a>
-    <a href="#start">Get Started</a>
-    <a href="#features">Features</a>
-    <a href="#how">How it works</a>
-    <a href="#mcp">MCP</a>
+    <a href="/features">Features</a>
+    <a href="/mcp">MCP</a>
     <a href="/blogs/">Blog</a>
-    <a href="#api">API</a>
   </div>
 
   <div class="nav-end">
-    <a href="/docs" class="btn-sm hide-mob" target="_blank" rel="noopener">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-      API Docs
-    </a>
-    <!-- Sign-in button (shown when logged out) -->
-    <button class="btn-sm" id="nav-signin-btn" onclick="signInWithGoogle()" style="display:none;gap:6px">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-      Sign in
-    </button>
-    <!-- User chip (shown when logged in) -->
-    <div class="nav-user-chip" id="nav-user-chip" style="display:none" onclick="document.getElementById('try').scrollIntoView({behavior:'smooth'})">
-      <img id="nav-avatar" class="nav-avatar" src="" alt="">
-      <span id="nav-user-name" class="nav-user-name"></span>
-      <span id="nav-tokens-badge" class="nav-token-badge"></span>
-      <button class="btn-signout" onclick="event.stopPropagation();signOut()" title="Sign out">✕</button>
-    </div>
     <button class="theme-btn" id="themeBtn" aria-label="Toggle theme">
       <svg class="icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
       <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -942,72 +509,38 @@
     <button class="burger" id="burger" aria-label="Menu">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
+    <a class="btn-primary hide-mob" href="/app">Try It Free →</a>
   </div>
 </nav>
 
 <main>
+
 <!-- HERO -->
 <section id="hero">
   <div class="wrap-sm">
-    <div class="hero-badge"><i></i> AI + LaTeX + Telegram + MCP</div>
+    <div class="hero-badge"><i></i> ✦ AI · ATS-Optimised · 30 Seconds</div>
 
-    <h1>Your resume,<br><em>perfectly crafted.</em></h1>
+    <h1>Your Resume,<br>Built by <em>AI</em></h1>
 
     <p class="hero-sub">
-      Describe your experience in plain text — Gemini AI writes the LaTeX, pdflatex compiles the PDF.
-      ATS-friendly, professionally formatted, every time.
+      Paste your experience. Gemini generates a professionally formatted, ATS-ready PDF
+      in under 30 seconds — then downloads it to you.
     </p>
 
     <div class="hero-btns">
-      <a href="/app" class="btn-primary">
+      <a href="/app" class="hero-btn-primary">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
-        Get started
+        → Try It Free
       </a>
-      <a href="/docs" class="btn-outline" target="_blank" rel="noopener">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        API Reference
+      <a href="https://t.me/resumemcpbot" class="btn-outline" target="_blank" rel="noopener">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Telegram Bot
       </a>
-    </div>
-
-    <!-- Main service cards — visible on first page -->
-    <h2 class="sr-only">Core Features</h2>
-    <div class="services-strip">
-
-      <div class="svc-card">
-        <div class="svc-icon" style="background:var(--accent-bg);color:var(--accent)">✦</div>
-        <h3>Create from scratch</h3>
-        <p>Describe your experience, skills, and background in plain text. AI writes a complete ATS-optimised resume — no templates, no guessing.</p>
-        <a href="/app" class="svc-link">
-          Try it
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-        </a>
-      </div>
-
-      <div class="svc-card">
-        <div class="svc-icon" style="background:var(--green-bg);color:var(--green)">⇌</div>
-        <h3>Tailor to any job</h3>
-        <p>Paste a job description and we rewrite your resume to match — bold JD keywords, reorder bullet points, optimise for ATS scoring.</p>
-        <a href="/app" class="svc-link">
-          Try it
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-        </a>
-      </div>
-
-      <div class="svc-card">
-        <div class="svc-icon" style="background:var(--amber-bg);color:var(--amber)">◈</div>
-        <h3>Apply directly</h3>
-        <p>Connect Gmail and ResumeForge tailors your resume, writes a cover email, and sends the application to the recruiter — all in one step.</p>
-        <a href="/app" class="svc-link">
-          Try it
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-        </a>
-      </div>
-
     </div>
   </div>
 </section>
 
-<!-- LIVE STATS -->
+<!-- STATS -->
 <section id="stats" class="sec-alt" style="padding:48px 0">
   <div class="wrap">
     <div class="stats-row">
@@ -1043,499 +576,165 @@
   </div>
 </section>
 
-<!-- APP / DASHBOARD -->
-<section id="try" class="sec">
+<!-- FEATURE CARDS -->
+<section id="features" class="sec">
   <div class="wrap">
-    <div class="eyebrow">Web App</div>
-    <h2>Your resume dashboard</h2>
-    <p class="lead">Sign in with Google to create, tailor, and manage your resumes — all saved to your account.</p>
+    <div class="eyebrow">Core Features</div>
+    <h2>What Resume-MCP does for you</h2>
+    <p class="lead">Everything you need to go from blank page to recruiter's inbox — in seconds.</p>
 
-    <!-- AUTH WALL (shown when not signed in) -->
-    <div id="auth-wall" class="auth-wall">
-      <div class="auth-wall-icon">📄</div>
-      <h3>Sign in to get started</h3>
-      <p>Create ATS-optimised resumes, tailor them to job descriptions, update and manage all your PDFs — free to start.</p>
-      <button class="btn-google" onclick="signInWithGoogle()">
-        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 2.9l5.7-5.7C34.5 6.5 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.5 15.8 18.9 12 24 12c3.1 0 5.8 1.1 7.9 2.9l5.7-5.7C34.5 6.5 29.6 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.4 35.5 26.8 36 24 36c-5.3 0-9.7-3.3-11.3-8H6.1C9.5 35.6 16.3 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l.1-.1 6.2 5.2C37.1 39 44 34 44 24c0-1.2-.1-2.4-.4-3.5z"/></svg>
-        Continue with Google
-      </button>
-      <p class="auth-wall-note">5 free tokens on sign-up · No credit card required</p>
-    </div>
+    <div class="feat-grid-3">
 
-    <!-- DASHBOARD (shown when signed in) -->
-    <div id="dashboard" style="display:none">
-
-      <!-- User bar -->
-      <div class="dash-user-bar">
-        <div class="dash-user-info">
-          <img id="dash-avatar" src="" alt="" class="dash-avatar" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22><circle cx=%2220%22 cy=%2220%22 r=%2220%22 fill=%22%23e5e7eb%22/><circle cx=%2220%22 cy=%2215%22 r=%226%22 fill=%22%239ca3af%22/><ellipse cx=%2220%22 cy=%2234%22 rx=%2212%22 ry=%228%22 fill=%22%239ca3af%22/></svg>'">
-          <div>
-            <div class="dash-name" id="dash-name">Loading…</div>
-            <div class="dash-email" id="dash-email"></div>
-          </div>
-        </div>
-        <div class="dash-meta">
-          <div class="dash-token-badge" id="dash-tokens">— tokens</div>
-          <div class="dash-plan" id="dash-plan">FREE</div>
-          <button class="btn-ghost" style="font-size:.8rem;padding:6px 12px" onclick="signOut()">Sign out</button>
-        </div>
-      </div>
-
-      <div class="try-shell">
-        <!-- Tabs -->
-        <div class="try-tabs" role="tablist">
-          <button class="try-tab-btn active" data-tab="create" role="tab">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-            Create Resume
-          </button>
-          <button class="try-tab-btn" data-tab="tailor" role="tab">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            Tailor to JD
-          </button>
-          <button class="try-tab-btn" data-tab="update" role="tab">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
-            Update Resume
-          </button>
-          <button class="try-tab-btn" data-tab="pdfs" role="tab">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            My PDFs
-          </button>
-          <button class="try-tab-btn" data-tab="balance" role="tab">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-            Token Balance
-          </button>
-        </div>
-
-        <!-- ── CREATE RESUME ── -->
-        <div class="try-panel active" id="tab-create">
-          <p class="section-sub">Describe your experience in plain text — Gemini AI writes a complete ATS-optimised LaTeX resume and compiles it to PDF. Costs 2 tokens.</p>
-          <div class="form-group">
-            <label class="form-label" for="create-filename">Output filename <span>(optional)</span></label>
-            <input class="form-input" id="create-filename" type="text" placeholder="e.g. my_resume_2025" style="max-width:320px">
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="create-details">Your details</label>
-            <textarea class="form-textarea" id="create-details" rows="14" placeholder="Paste everything about yourself:
-
-Name: John Doe
-Email: john@example.com | Phone: +1-555-0100
-
-EXPERIENCE
-Software Engineer — Acme Corp (Jan 2022 – Present)
-- Built microservices in Python/FastAPI serving 2M requests/day
-- Led Kubernetes migration, reducing deploy time by 60%
-
-EDUCATION
-B.Sc. Computer Science — MIT (2021)
-
-SKILLS
-Python, FastAPI, Docker, Kubernetes, PostgreSQL, React, AWS"></textarea>
-            <p class="form-hint">Include dates, metrics, technologies, and achievements for best results.</p>
-          </div>
-          <div class="try-actions">
-            <button class="btn-generate" id="create-btn" onclick="tryCreateResume()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
-              Generate Resume PDF
-            </button>
-          </div>
-          <div class="try-spinner" id="create-spinner"><div class="spin"></div><span>Gemini is writing your resume… 10–20 seconds.</span></div>
-          <div class="try-result" id="create-result"></div>
-        </div>
-
-        <!-- ── TAILOR TO JD ── -->
-        <div class="try-panel" id="tab-tailor">
-          <p class="section-sub">Paste a job description — AI rewrites your resume to match the role, highlighting keywords and reordering bullets for ATS. Costs 1 token.</p>
-          <div class="form-group">
-            <label class="form-label" for="tailor-filename">Output filename <span>(optional)</span></label>
-            <input class="form-input" id="tailor-filename" type="text" placeholder="e.g. resume_google_2025" style="max-width:320px">
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="tailor-resume">Your current resume text <span>(leave blank to use saved resume)</span></label>
-            <textarea class="form-textarea" id="tailor-resume" rows="8" placeholder="Paste your resume text, or leave blank to use your saved resume…"></textarea>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="tailor-jd">Job description</label>
-            <textarea class="form-textarea" id="tailor-jd" rows="9" placeholder="Paste the full job description here — title, responsibilities, requirements, tech stack…"></textarea>
-            <p class="form-hint">Include the full JD for best keyword matching.</p>
-          </div>
-          <div class="try-actions">
-            <button class="btn-generate" id="tailor-btn" onclick="tryTailorResume()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-              Tailor &amp; Generate PDF
-            </button>
-          </div>
-          <div class="try-spinner" id="tailor-spinner"><div class="spin"></div><span>Tailoring your resume… 15–25 seconds.</span></div>
-          <div class="try-result" id="tailor-result"></div>
-        </div>
-
-        <!-- ── UPDATE RESUME ── -->
-        <div class="try-panel" id="tab-update">
-          <p class="section-sub">Update your saved resume with plain-English instructions — add a new job, change skills, update tone. Costs 1 token.</p>
-          <div class="form-group">
-            <label class="form-label" for="update-instructions">What to update</label>
-            <textarea class="form-textarea" id="update-instructions" rows="8" placeholder="Describe what you want changed, e.g.:
-
-- Add a new job: Senior Engineer at TechCorp (Jan 2024–Present), led team of 5, built payment system
-- Update skills section to include Go, gRPC, and Temporal
-- Make the tone more concise and results-focused
-- Add my new education: MBA at Stanford, 2024"></textarea>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="update-filename">Output filename <span>(optional)</span></label>
-            <input class="form-input" id="update-filename" type="text" placeholder="e.g. my_resume_updated" style="max-width:320px">
-          </div>
-          <div class="try-actions">
-            <button class="btn-generate" id="update-btn" onclick="tryUpdateResume()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
-              Update &amp; Generate PDF
-            </button>
-          </div>
-          <div class="try-spinner" id="update-spinner"><div class="spin"></div><span>Updating your resume… 15–25 seconds.</span></div>
-          <div class="try-result" id="update-result"></div>
-        </div>
-
-        <!-- ── MY PDFS ── -->
-        <div class="try-panel" id="tab-pdfs">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
-            <p class="section-sub" style="margin-bottom:0">Your generated resume PDFs — download or delete.</p>
-            <button class="btn-ghost" onclick="tryLoadPDFs()">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
-              Refresh
-            </button>
-          </div>
-          <div class="pdf-list-wrap" id="try-pdf-list">
-            <div class="empty-state">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              Click Refresh to load your PDFs
-            </div>
-          </div>
-        </div>
-
-        <!-- ── TOKEN BALANCE ── -->
-        <div class="try-panel" id="tab-balance">
-          <p class="section-sub">Your token usage and plan details. Tokens reset every 30 days on the free plan.</p>
-          <div class="balance-grid">
-            <div class="balance-card">
-              <div class="balance-card-num" id="bal-remaining" style="color:var(--accent)">—</div>
-              <div class="balance-card-label">Tokens remaining</div>
-            </div>
-            <div class="balance-card">
-              <div class="balance-card-num" id="bal-plan" style="color:var(--green)">FREE</div>
-              <div class="balance-card-label">Current plan</div>
-            </div>
-            <div class="balance-card">
-              <div class="balance-card-num" id="bal-reset" style="font-size:1rem;line-height:1.5">—</div>
-              <div class="balance-card-label">Resets on</div>
-            </div>
-          </div>
-          <h3 style="font-size:.9375rem;font-weight:600;margin-bottom:14px;color:var(--text-2)">Token costs per operation</h3>
-          <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:4px 16px">
-            <div class="op-cost-row"><span>Create resume from scratch</span><span class="op-cost-badge">2 tokens</span></div>
-            <div class="op-cost-row"><span>Tailor resume to job description</span><span class="op-cost-badge">1 token</span></div>
-            <div class="op-cost-row"><span>Update existing resume</span><span class="op-cost-badge">1 token</span></div>
-            <div class="op-cost-row"><span>Apply via email (Gmail)</span><span class="op-cost-badge">3 tokens</span></div>
-          </div>
-          <div class="try-result" id="balance-result" style="margin-top:16px"></div>
-        </div>
-
-      </div><!-- /.try-shell -->
-    </div><!-- /#dashboard -->
-  </div>
-</section>
-
-<!-- GET STARTED / HOW TO USE -->
-<section id="start" class="sec">
-  <div class="wrap">
-    <div class="eyebrow">Get started</div>
-    <h2>Two ways to use ResumeForge</h2>
-    <p class="lead">Use the Telegram bot for a conversational experience, or connect any MCP-compatible AI assistant directly.</p>
-
-    <div class="start-grid">
-
-      <!-- Telegram -->
-      <div class="start-card">
-        <div class="start-card-head">
-          <div class="start-card-icon" style="background:var(--accent-bg);color:var(--accent);font-size:22px">✈</div>
-          <div>
-            <h3>Telegram Bot</h3>
-            <p>Conversational, zero setup — just open the bot and start typing.</p>
-          </div>
-        </div>
-        <div class="start-card-body">
-          <div class="cmd-list">
-            <div class="cmd-row">
-              <span class="cmd-tag">/create</span>
-              <span class="cmd-desc">Describe your background — bot creates a full resume PDF and sends it back.</span>
-            </div>
-            <div class="cmd-row">
-              <span class="cmd-tag">/tailor</span>
-              <span class="cmd-desc">Paste or upload a job description — get a version of your resume tailored to that role.</span>
-            </div>
-            <div class="cmd-row">
-              <span class="cmd-tag">/update</span>
-              <span class="cmd-desc">Tell the bot what to change — new job, new skills, tone — in plain language.</span>
-            </div>
-            <div class="cmd-row">
-              <span class="cmd-tag">/apply</span>
-              <span class="cmd-desc">Connect Gmail and send a tailored resume + cover email directly to the recruiter.</span>
-            </div>
-            <div class="cmd-row">
-              <span class="cmd-tag">/list</span>
-              <span class="cmd-desc">View and download all previously generated PDFs.</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- MCP -->
-      <div class="start-card">
-        <div class="start-card-head">
-          <div class="start-card-icon" style="background:var(--purple-bg);color:var(--purple);font-size:22px">⬡</div>
-          <div>
-            <h3>MCP Server</h3>
-            <p>Connect Claude Desktop, Cursor, or any MCP client — ask in natural language.</p>
-          </div>
-        </div>
-        <div class="start-card-body">
-          <div class="cmd-list">
-            <div class="cmd-row">
-              <span class="cmd-tag" style="background:var(--purple-bg);color:var(--purple);border-color:rgba(124,58,237,.2)">create_resume</span>
-              <span class="cmd-desc">Pass user details text and get a compiled PDF resume back.</span>
-            </div>
-            <div class="cmd-row">
-              <span class="cmd-tag" style="background:var(--purple-bg);color:var(--purple);border-color:rgba(124,58,237,.2)">tailor_smart</span>
-              <span class="cmd-desc">Tailor a saved or uploaded resume to any job description via AI.</span>
-            </div>
-            <div class="cmd-row">
-              <span class="cmd-tag" style="background:var(--purple-bg);color:var(--purple);border-color:rgba(124,58,237,.2)">enhance_bullets</span>
-              <span class="cmd-desc">Get 3 high-impact ATS-optimised rewrites of any resume bullet point.</span>
-            </div>
-            <div class="cmd-row">
-              <span class="cmd-tag" style="background:var(--purple-bg);color:var(--purple);border-color:rgba(124,58,237,.2)">list_pdfs</span>
-              <span class="cmd-desc">Browse all generated resumes from within your AI assistant.</span>
-            </div>
-            <div class="cmd-row">
-              <span class="cmd-tag" style="background:var(--purple-bg);color:var(--purple);border-color:rgba(124,58,237,.2)">SSE endpoint</span>
-              <span class="cmd-desc">Connect at <code>/mcp/sse</code> — no extra auth, works on localhost or remote.</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-</section>
-
-<!-- ALL FEATURES -->
-<section id="features" class="sec-alt" style="padding:88px 0">
-  <div class="wrap">
-    <div class="eyebrow">Capabilities</div>
-    <h2>Everything your job search needs</h2>
-    <p class="lead">From blank page to sent application — one system, end-to-end.</p>
-
-    <div class="feat-grid">
-      <div class="feat">
+      <div class="feat-card">
         <div class="feat-icon" style="background:var(--accent-bg);color:var(--accent)">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
         </div>
-        <h3>AI resume writing</h3>
-        <p>Give Gemini your experience in plain text. It writes a complete, professionally structured LaTeX resume — no templates to fill in, no placeholders.</p>
+        <h3>AI Resume Creation</h3>
+        <p>Describe yourself in plain text. Gemini writes every bullet, formats the LaTeX, and compiles to a crisp PDF — no templates, no guessing.</p>
       </div>
-      <div class="feat">
+
+      <div class="feat-card">
         <div class="feat-icon" style="background:var(--green-bg);color:var(--green)">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </div>
-        <h3>ATS keyword matching</h3>
-        <p>We bold JD-required technologies, reorder bullets, and weave keywords into project descriptions — helping you pass automated screening.</p>
+        <h3>ATS-Optimised Output</h3>
+        <p>Keywords extracted from the job description. Bullets rewritten to pass ATS scanners with higher match scores and bolder keyword placement.</p>
       </div>
-      <div class="feat">
-        <div class="feat-icon" style="background:var(--amber-bg);color:var(--amber)">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        </div>
-        <h3>One-tap apply</h3>
-        <p>Connect Google account → ResumeForge tailors your resume, writes a personalised cover email, and sends it directly to the recruiter.</p>
-      </div>
-      <div class="feat">
+
+      <div class="feat-card">
         <div class="feat-icon" style="background:var(--purple-bg);color:var(--purple)">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
         </div>
-        <h3>Bullet enhancer</h3>
-        <p>Paste a weak resume bullet, get back 3 high-impact rewrites — power verbs, quantified results, industry-specific language, minimum 12 words each.</p>
+        <h3>3 Ways to Use</h3>
+        <p>Web app · Telegram bot · MCP server. Pick the channel that fits your workflow — they all produce the same high-quality PDF output.</p>
       </div>
-      <div class="feat">
-        <div class="feat-icon" style="background:var(--green-bg);color:var(--green)">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </div>
-        <h3>Update any section</h3>
-        <p>Your resume is saved. Tell the bot in plain English what changed — new role, new skills, new tone — and it updates just that part.</p>
-      </div>
-      <div class="feat">
-        <div class="feat-icon" style="background:var(--accent-bg);color:var(--accent)">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-        </div>
-        <h3>LaTeX quality PDF</h3>
-        <p>We compile with pdflatex — the same tool used by academics and engineers. Precise spacing, proper hyphenation, crisp PDF output every time.</p>
-      </div>
+
+    </div>
+
+    <div class="features-footer">
+      <a href="/features" class="feat-link" style="font-size:.9rem">
+        See all features
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      </a>
     </div>
   </div>
 </section>
 
 <!-- HOW IT WORKS -->
-<section id="how" class="sec">
+<section id="how" class="sec-alt" style="padding:88px 0">
   <div class="wrap">
-    <div class="eyebrow">Process</div>
-    <h2>From details to PDF in seconds</h2>
-    <p class="lead">Four steps — you only do step one. The rest is automatic.</p>
+    <div class="eyebrow">How it works</div>
+    <h2>Three steps, 30 seconds</h2>
+    <p class="lead">You do step one. The AI handles the rest.</p>
 
-    <div class="steps">
-      <div class="step">
+    <div class="steps-3">
+
+      <div class="step-3">
         <div class="step-bubble">01</div>
-        <h3>You describe your experience</h3>
-        <p>Name, roles, companies, skills, education — in plain text. No rigid forms. Just talk to the bot or API.</p>
+        <h3>Paste your details</h3>
+        <p>Name, roles, companies, skills, education — in plain text. No rigid forms, no templates. Just write naturally.</p>
       </div>
-      <div class="step">
+
+      <div class="step-3">
         <div class="step-bubble">02</div>
-        <h3>Gemini writes the LaTeX</h3>
-        <p>AI follows strict rules — your real data only, proper bullet length, ATS-safe formatting, correct section order.</p>
+        <h3>AI generates your resume</h3>
+        <p>Gemini structures your experience, writes impact bullets, optimises for ATS, and renders it into clean LaTeX.</p>
       </div>
-      <div class="step">
+
+      <div class="step-3">
         <div class="step-bubble">03</div>
-        <h3>pdflatex compiles the PDF</h3>
-        <p>Two-pass compilation ensures perfect references, spacing, and typography — no word-run issues, no layout breaks.</p>
+        <h3>Download your PDF</h3>
+        <p>pdflatex compiles the final document. You get a professionally typeset PDF delivered instantly to your device.</p>
       </div>
-      <div class="step">
-        <div class="step-bubble">04</div>
-        <h3>PDF delivered to you</h3>
-        <p>Telegram sends it as a document, API returns a download link, or we email it directly to a recruiter on your behalf.</p>
-      </div>
+
     </div>
   </div>
 </section>
 
-<!-- MCP SECTION -->
-<section id="mcp" class="sec-alt" style="padding:88px 0">
+<!-- CHANNELS -->
+<section id="channels" class="sec">
   <div class="wrap">
-    <div class="mcp-layout">
-      <div class="mcp-copy">
-        <div class="eyebrow">MCP Integration</div>
-        <h2>Works with your AI assistant</h2>
-        <p>
-          ResumeForge runs an MCP (Model Context Protocol) server at <code>/mcp/sse</code>.
-          Connect Claude Desktop, Cursor, Zed, or any MCP-compatible client and ask it to
-          create or tailor your resume in natural language — no extra setup required.
-        </p>
-        <p>
-          All tools — resume creation, JD parsing, bullet enhancement, PDF management — are
-          exposed as MCP tools your AI can call directly. The server uses SSE transport and
-          works on localhost or a remote server.
-        </p>
-        <div class="pill-group">
-          <span class="pill">Claude Desktop</span>
-          <span class="pill">Cursor</span>
-          <span class="pill">Zed</span>
-          <span class="pill">Windsurf</span>
-          <span class="pill">Any MCP client</span>
-          <span class="pill">SSE transport</span>
+    <div class="eyebrow">Access Channels</div>
+    <h2>Use it however you work</h2>
+    <p class="lead">Same AI, same output — across every interface.</p>
+
+    <div class="channels-grid">
+
+      <!-- Telegram -->
+      <div class="channel-card">
+        <div class="channel-head">
+          <div class="channel-icon" style="background:var(--accent-bg);color:var(--accent);font-size:22px">✈</div>
+          <div>
+            <h3>Telegram Bot</h3>
+            <p>Chat with the bot, get your resume as a document.</p>
+          </div>
+        </div>
+        <div class="channel-body">
+          <div class="cmd-list">
+            <div class="cmd-row">
+              <span class="cmd-tag">/create</span>
+              <span class="cmd-desc">Describe your background — bot generates a full resume PDF and sends it back.</span>
+            </div>
+            <div class="cmd-row">
+              <span class="cmd-tag">/tailor</span>
+              <span class="cmd-desc">Paste a job description to get a version tailored to that exact role.</span>
+            </div>
+            <div class="cmd-row">
+              <span class="cmd-tag">/list</span>
+              <span class="cmd-desc">View and re-download all previously generated PDFs.</span>
+            </div>
+          </div>
+          <a href="https://t.me/resumemcpbot" class="btn-primary" target="_blank" rel="noopener" style="font-size:.875rem;padding:10px 20px">
+            Open Bot →
+          </a>
         </div>
       </div>
 
-      <div class="code-win">
-        <div class="code-bar">
-          <div class="dots"><span></span><span></span><span></span></div>
-          <span class="code-fn">claude_desktop_config.json</span>
+      <!-- MCP -->
+      <div class="channel-card">
+        <div class="channel-head">
+          <div class="channel-icon" style="background:var(--purple-bg);color:var(--purple);font-size:22px">⬡</div>
+          <div>
+            <h3>MCP Integration</h3>
+            <p>Connect Claude Desktop, Cursor, or any MCP client.</p>
+          </div>
         </div>
-        <div class="code-body"><span class="cc">// Add to Claude Desktop settings</span>
-{
-  <span class="ck">"mcpServers"</span>: {
-    <span class="ck">"resume-forge"</span>: {
-      <span class="ck">"url"</span>: <span class="cs">"http://localhost:8000/mcp/sse"</span>,
-      <span class="ck">"transport"</span>: <span class="cs">"sse"</span>
-    }
-  }
-}
-
-<span class="cc">// Then ask Claude naturally:</span>
-<span class="cs">"Create a resume for a Senior DevOps Engineer
- with 6 years AWS experience, strong in
- Kubernetes, Terraform, and CI/CD pipelines."</span>
-
-<span class="cc">// Or tailor to a job posting:</span>
-<span class="cs">"Tailor my saved resume for this job description:
- [paste JD here]"</span></div>
+        <div class="channel-body">
+          <p style="font-size:.875rem;color:var(--text-2);line-height:1.7;margin-bottom:16px">
+            Resume-MCP exposes a full MCP server at <code>/mcp/sse</code>. Connect any compatible AI assistant and ask it to create or tailor your resume in natural language.
+          </p>
+          <div class="pill-group">
+            <span class="pill">Claude Desktop</span>
+            <span class="pill">Cursor</span>
+            <span class="pill">Zed</span>
+            <span class="pill">Windsurf</span>
+            <span class="pill">Any MCP client</span>
+          </div>
+          <a href="/mcp" class="btn-primary" style="font-size:.875rem;padding:10px 20px">
+            View Setup →
+          </a>
+        </div>
       </div>
+
     </div>
   </div>
 </section>
 
-<!-- API REFERENCE -->
-<section id="api" class="sec">
+<!-- CTA -->
+<section id="cta" class="sec-alt" style="padding:88px 0">
   <div class="wrap">
-    <div class="eyebrow">REST API</div>
-    <h2>Integrate with anything</h2>
-    <p class="lead">Full OpenAPI docs at <a href="/docs">/docs</a>. Key endpoints below.</p>
-
-    <div class="tbl-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th style="width:280px">Method &amp; Endpoint</th>
-            <th>What it does</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><span class="badge-m m-post">POST</span><span class="route-txt">/api/create-resume</span></td>
-            <td>Generate a full resume from plain-text user details. AI writes LaTeX, pdflatex compiles it.</td>
-          </tr>
-          <tr>
-            <td><span class="badge-m m-post">POST</span><span class="route-txt">/api/tailor-smart</span></td>
-            <td>Tailor saved or uploaded resume to a job description. Uses saved LaTeX if available for best results.</td>
-          </tr>
-          <tr>
-            <td><span class="badge-m m-post">POST</span><span class="route-txt">/api/update-resume</span></td>
-            <td>Update an existing saved resume using natural-language instructions.</td>
-          </tr>
-          <tr>
-            <td><span class="badge-m m-post">POST</span><span class="route-txt">/api/enhance-bullets</span></td>
-            <td>Returns 3 high-impact ATS-optimised rewrites of any resume bullet point.</td>
-          </tr>
-          <tr>
-            <td><span class="badge-m m-post">POST</span><span class="route-txt">/api/parse-jd</span></td>
-            <td>Extract skills, requirements, and experience level from a job description file or text.</td>
-          </tr>
-          <tr>
-            <td><span class="badge-m m-post">POST</span><span class="route-txt">/api/apply-smart</span></td>
-            <td>Tailor resume + compose cover email + send via Gmail — full apply flow in one call.</td>
-          </tr>
-          <tr>
-            <td><span class="badge-m m-get">GET</span><span class="route-txt">/api/pdfs</span></td>
-            <td>List all generated PDF resumes with filenames, sizes, and timestamps.</td>
-          </tr>
-          <tr>
-            <td><span class="badge-m m-get">GET</span><span class="route-txt">/api/pdfs/{filename}</span></td>
-            <td>Download a specific generated PDF by filename.</td>
-          </tr>
-          <tr>
-            <td><span class="badge-m m-get">GET</span><span class="route-txt">/api/stats</span></td>
-            <td>Live counts — total generated, created from scratch, tailored to JDs.</td>
-          </tr>
-          <tr>
-            <td><span class="badge-m m-get">GET</span><span class="route-txt">/api/health</span></td>
-            <td>System health check — confirms LaTeX and API are ready.</td>
-          </tr>
-          <tr>
-            <td><span class="badge-m m-get">GET</span><span class="route-txt">/mcp/sse</span></td>
-            <td>MCP Server SSE endpoint — connect any MCP-compatible AI client here.</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="sbar">
-      <div class="sbar-item"><div class="dot" id="dApi"></div><span id="lApi">API</span></div>
-      <div class="sbar-item"><div class="dot" id="dLatex"></div><span id="lLatex">LaTeX</span></div>
-      <div class="sbar-item"><div class="dot" id="dAi"></div><span id="lAi">Gemini AI</span></div>
-      <span class="sbar-time" id="sTime"></span>
+    <div class="cta-inner">
+      <div class="eyebrow" style="text-align:center">Get started today</div>
+      <h2 style="text-align:center">Ready to build your resume?</h2>
+      <p style="text-align:center">
+        No account needed. Paste your experience, click generate, get your PDF in under 30 seconds.
+      </p>
+      <div style="text-align:center">
+        <a href="/app" class="btn-primary" style="font-size:1rem;padding:14px 32px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+          Try It Free — It's Free
+        </a>
+      </div>
     </div>
   </div>
 </section>
@@ -1552,14 +751,12 @@ Python, FastAPI, Docker, Kubernetes, PostgreSQL, React, AWS"></textarea>
         <rect x="7" y="13" width="10" height="2" rx="1" fill="rgba(255,255,255,.7)"/>
         <rect x="7" y="18" width="7" height="2" rx="1" fill="rgba(255,255,255,.45)"/>
       </svg>
-      ResumeForge
+      Resume-MCP
     </div>
     <div class="foot-nav">
-      <a href="#start">Get Started</a>
-      <a href="#features">Features</a>
-      <a href="#how">How it works</a>
-      <a href="#mcp">MCP</a>
-      <a href="#api">API</a>
+      <a href="/features">Features</a>
+      <a href="/mcp">MCP</a>
+      <a href="/blogs/">Blog</a>
       <a href="/docs" target="_blank" rel="noopener">Docs</a>
     </div>
     <div class="foot-copy">Built with FastAPI · Gemini · LaTeX</div>
@@ -1567,22 +764,23 @@ Python, FastAPI, Docker, Kubernetes, PostgreSQL, React, AWS"></textarea>
 </footer>
 
 <script>
-  // ── Theme ─────────────────────────────────────────────────────
+  // ── Theme ──────────────────────────────────────────────────────
   const html = document.documentElement;
   const saved = localStorage.getItem('rf-theme');
   if (saved) html.setAttribute('data-theme', saved);
   document.getElementById('themeBtn').addEventListener('click', () => {
     const t = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-    html.setAttribute('data-theme', t); localStorage.setItem('rf-theme', t);
+    html.setAttribute('data-theme', t);
+    localStorage.setItem('rf-theme', t);
   });
 
-  // ── Mobile nav ────────────────────────────────────────────────
+  // ── Mobile nav ─────────────────────────────────────────────────
   const burger = document.getElementById('burger');
   const navL   = document.getElementById('navLinks');
   burger.addEventListener('click', () => navL.classList.toggle('open'));
   navL.querySelectorAll('a').forEach(a => a.addEventListener('click', () => navL.classList.remove('open')));
 
-  // ── Stats ─────────────────────────────────────────────────────
+  // ── Stats counter ──────────────────────────────────────────────
   function count(el, target, ms = 900) {
     el.classList.remove('dim');
     if (!target) { el.textContent = '0'; return; }
@@ -1604,398 +802,28 @@ Python, FastAPI, Docker, Kubernetes, PostgreSQL, React, AWS"></textarea>
     } catch {
       ['s-total','s-created','s-tailored'].forEach(id => {
         const el = document.getElementById(id);
-        el.textContent = '—'; el.classList.remove('dim');
+        if (el) { el.textContent = '—'; el.classList.remove('dim'); }
       });
     }
   }
 
   async function loadHealth() {
     const hEl = document.getElementById('s-health');
+    if (!hEl) return;
     try {
       const d = await fetch('/api/health').then(r => r.json());
       const ok = d.latex_installed;
       hEl.textContent = ok ? 'All systems go' : 'LaTeX missing';
       hEl.style.color = ok ? 'var(--green)' : 'var(--amber)';
-      document.getElementById('dApi').classList.add('ok');
-      document.getElementById('lApi').textContent = 'API · Online';
-      const dLatex = document.getElementById('dLatex');
-      if (ok) { dLatex.classList.add('ok'); document.getElementById('lLatex').textContent = 'LaTeX · Ready'; }
-      else     { dLatex.classList.add('warn'); document.getElementById('lLatex').textContent = 'LaTeX · Not found'; }
-      document.getElementById('dAi').classList.add('ok');
-      document.getElementById('lAi').textContent = 'Gemini AI · Connected';
     } catch {
-      hEl.textContent = 'Offline'; hEl.style.color = 'var(--red)';
-      document.getElementById('dApi').classList.add('warn');
-      document.getElementById('lApi').textContent = 'API · Unreachable';
-    }
-    document.getElementById('sTime').textContent =
-      'Checked ' + new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
-  }
-
-  loadStats(); loadHealth(); setInterval(loadHealth, 60000);
-
-  // ── Auth ──────────────────────────────────────────────────────
-  // Session is cached in localStorage with a 24-hour TTL.
-  // After Google OAuth the redirect URL carries name/email/avatar
-  // so we never need a back-end round-trip to show the dashboard.
-
-  const SESSION_KEY = 'rfc_session';
-  const SESSION_TTL = 24 * 60 * 60 * 1000; // 24 h
-
-  let currentUser = null; // { telegram_id, name, email, avatar, tokens, plan, saved_at }
-
-  function _saveSession(user) {
-    user.saved_at = Date.now();
-    localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-    localStorage.setItem('rfc_uid', user.telegram_id);
-  }
-
-  function _loadSession() {
-    try {
-      const raw = localStorage.getItem(SESSION_KEY);
-      if (!raw) return null;
-      const s = JSON.parse(raw);
-      if (!s.telegram_id) return null;
-      if (Date.now() - (s.saved_at || 0) > SESSION_TTL) {
-        localStorage.removeItem(SESSION_KEY);
-        return null;
-      }
-      return s;
-    } catch { return null; }
-  }
-
-  function _clearSession() {
-    localStorage.removeItem(SESSION_KEY);
-    localStorage.removeItem('rfc_uid');
-  }
-
-  function getOrCreateWebUid() {
-    const cached = _loadSession();
-    if (cached) return cached.telegram_id;
-    let uid = localStorage.getItem('rfc_uid');
-    if (!uid) { uid = String(Date.now()); localStorage.setItem('rfc_uid', uid); }
-    return uid;
-  }
-
-  // Called on every page load
-  function initAuth() {
-    const params = new URLSearchParams(window.location.search);
-
-    // ── Returning from Google OAuth ───────────────────────────
-    if (params.get('auth') === 'success') {
-      const uid    = params.get('uid')    || '';
-      const name   = params.get('name')   || 'User';
-      const email  = params.get('email')  || '';
-      const avatar = params.get('avatar') || '';
-
-      if (uid) {
-        const user = { telegram_id: uid, name, email, avatar, tokens: 5, plan: 'free' };
-        _saveSession(user);
-        currentUser = user;
-        // Clean URL without reload
-        window.history.replaceState({}, '', '/');
-        showDashboard();
-        _bgRefreshTokens(); // fetch real token count silently
-        return;
-      }
-    }
-
-    // ── Check cached session ──────────────────────────────────
-    const cached = _loadSession();
-    if (cached) {
-      currentUser = cached;
-      showDashboard();
-      _bgRefreshTokens();
-      return;
-    }
-
-    showAuthWall();
-  }
-
-  // Fetch fresh token balance in the background (does not block the UI)
-  async function _bgRefreshTokens() {
-    if (!currentUser) return;
-    try {
-      const r = await fetch(`/api/users/${currentUser.telegram_id}/balance`);
-      if (!r.ok) return;
-      const d = await r.json();
-      currentUser.tokens = d.tokens_remaining ?? currentUser.tokens;
-      currentUser.plan   = d.plan || currentUser.plan;
-      _saveSession(currentUser);
-      // Patch visible counters
-      const t = currentUser.tokens;
-      const el = document.getElementById('dash-tokens');
-      if (el) el.textContent = `${t} token${t !== 1 ? 's' : ''} remaining`;
-      const badge = document.getElementById('nav-tokens-badge');
-      if (badge) badge.textContent = `${t}t`;
-    } catch { /* silent */ }
-  }
-
-  function showAuthWall() {
-    document.getElementById('auth-wall').style.display = 'block';
-    document.getElementById('dashboard').style.display = 'none';
-    document.getElementById('nav-signin-btn').style.display = 'inline-flex';
-    document.getElementById('nav-user-chip').style.display = 'none';
-  }
-
-  function showDashboard() {
-    if (!currentUser) return;
-    document.getElementById('auth-wall').style.display = 'none';
-    document.getElementById('dashboard').style.display = 'block';
-
-    const t = currentUser.tokens ?? 5;
-
-    // User info bar
-    document.getElementById('dash-name').textContent  = currentUser.name;
-    document.getElementById('dash-email').textContent = currentUser.email;
-    const dashAv = document.getElementById('dash-avatar');
-    if (dashAv && currentUser.avatar) dashAv.src = currentUser.avatar;
-    document.getElementById('dash-tokens').textContent = `${t} token${t !== 1 ? 's' : ''} remaining`;
-    document.getElementById('dash-plan').textContent   = (currentUser.plan || 'free').toUpperCase();
-
-    // Nav chip
-    document.getElementById('nav-signin-btn').style.display = 'none';
-    document.getElementById('nav-user-chip').style.display  = 'flex';
-    const navAv = document.getElementById('nav-avatar');
-    if (navAv && currentUser.avatar) navAv.src = currentUser.avatar;
-    document.getElementById('nav-user-name').textContent   = (currentUser.name || 'User').split(' ')[0];
-    document.getElementById('nav-tokens-badge').textContent = `${t}t`;
-
-    // Auto-load PDFs tab
-    tryLoadPDFs();
-  }
-
-  async function signInWithGoogle() {
-    const uid = getOrCreateWebUid();
-    try {
-      const data = await fetch(`/auth/url?telegram_user_id=${uid}&source=web`).then(r => r.json());
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert('Could not get sign-in URL. Please try again.');
-      }
-    } catch {
-      alert('Error connecting to server. Please try again.');
+      hEl.textContent = 'Offline';
+      hEl.style.color = 'var(--red)';
     }
   }
 
-  function signOut() {
-    const uid = localStorage.getItem('rfc_uid');
-    if (uid) {
-      // Fire-and-forget server-side revoke (non-blocking)
-      fetch(`/auth/session/${uid}`, { method: 'DELETE' }).catch(() => {});
-    }
-    _clearSession();
-    currentUser = null;
-    showAuthWall();
-  }
-
-  // ── Tab switching ─────────────────────────────────────────────
-  document.querySelectorAll('.try-tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const tab = btn.dataset.tab;
-      document.querySelectorAll('.try-tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.try-panel').forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('tab-' + tab)?.classList.add('active');
-      if (tab === 'pdfs') tryLoadPDFs();
-      if (tab === 'balance') loadTokenBalance();
-    });
-  });
-
-  // ── Helpers ───────────────────────────────────────────────────
-  function showResult(id, msg, ok) {
-    const el = document.getElementById(id);
-    el.className = 'try-result ' + (ok ? 'success' : 'error');
-    el.innerHTML = (ok ? '✅ ' : '❌ ') + msg;
-  }
-  function setLoading(btnId, spinnerId, loading) {
-    document.getElementById(btnId).disabled = loading;
-    const sp = document.getElementById(spinnerId);
-    sp.classList.toggle('show', loading);
-  }
-
-  // ── Create Resume ─────────────────────────────────────────────
-  async function tryCreateResume() {
-    if (!currentUser) { alert('Please sign in first.'); return; }
-    const details = document.getElementById('create-details').value.trim();
-    if (!details) { showResult('create-result','Please describe your experience.',false); return; }
-    setLoading('create-btn','create-spinner',true);
-    document.getElementById('create-result').className = 'try-result';
-    try {
-      const filename = document.getElementById('create-filename').value.trim() || `resume_${currentUser.telegram_id}`;
-      const r = await fetch('/api/v2/create-resume', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ user_id: currentUser.telegram_id, user_details_text: details })
-      });
-      const d = await r.json();
-      if (d.success || d.filename) {
-        const fn = d.filename || d.pdf_filename;
-        showResult('create-result',
-          `Resume created! <a href="/api/pdfs/${fn}" target="_blank" style="color:inherit;font-weight:600;text-decoration:underline">Download PDF ↓</a>`,
-          true);
-        await refreshUserTokens();
-        tryLoadPDFs();
-      } else {
-        showResult('create-result', d.detail || d.message || 'Generation failed.', false);
-      }
-    } catch(e) {
-      showResult('create-result','Network error: ' + e.message, false);
-    } finally {
-      setLoading('create-btn','create-spinner',false);
-    }
-  }
-
-  // ── Tailor Resume ─────────────────────────────────────────────
-  async function tryTailorResume() {
-    if (!currentUser) { alert('Please sign in first.'); return; }
-    const jd = document.getElementById('tailor-jd').value.trim();
-    if (!jd) { showResult('tailor-result','Please paste a job description.',false); return; }
-    setLoading('tailor-btn','tailor-spinner',true);
-    document.getElementById('tailor-result').className = 'try-result';
-    try {
-      const resumeText = document.getElementById('tailor-resume').value.trim();
-      const body = { user_id: currentUser.telegram_id, jd_text: jd, resume_text: resumeText || '' };
-      const r = await fetch('/api/v2/tailor-resume', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(body)
-      });
-      const d = await r.json();
-      if (d.success || d.filename) {
-        const fn = d.filename || d.pdf_filename;
-        showResult('tailor-result',
-          `Resume tailored! <a href="/api/pdfs/${fn}" target="_blank" style="color:inherit;font-weight:600;text-decoration:underline">Download PDF ↓</a>`,
-          true);
-        await refreshUserTokens();
-        tryLoadPDFs();
-      } else {
-        showResult('tailor-result', d.detail || d.message || 'Tailoring failed.', false);
-      }
-    } catch(e) {
-      showResult('tailor-result','Network error: ' + e.message, false);
-    } finally {
-      setLoading('tailor-btn','tailor-spinner',false);
-    }
-  }
-
-  // ── Update Resume ─────────────────────────────────────────────
-  async function tryUpdateResume() {
-    if (!currentUser) { alert('Please sign in first.'); return; }
-    const instructions = document.getElementById('update-instructions').value.trim();
-    if (!instructions) { showResult('update-result','Please describe what to update.',false); return; }
-    setLoading('update-btn','update-spinner',true);
-    document.getElementById('update-result').className = 'try-result';
-    try {
-      const filename = document.getElementById('update-filename').value.trim() || `resume_updated_${currentUser.telegram_id}`;
-      const r = await fetch('/api/update-resume', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ user_id: currentUser.telegram_id, update_instructions: instructions })
-      });
-      const d = await r.json();
-      if (d.success || d.filename) {
-        const fn = d.filename || d.pdf_filename;
-        showResult('update-result',
-          `Resume updated! <a href="/api/pdfs/${fn}" target="_blank" style="color:inherit;font-weight:600;text-decoration:underline">Download PDF ↓</a>`,
-          true);
-        await refreshUserTokens();
-        tryLoadPDFs();
-      } else {
-        showResult('update-result', d.detail || d.message || 'Update failed.', false);
-      }
-    } catch(e) {
-      showResult('update-result','Network error: ' + e.message, false);
-    } finally {
-      setLoading('update-btn','update-spinner',false);
-    }
-  }
-
-  // ── My PDFs ───────────────────────────────────────────────────
-  async function tryLoadPDFs() {
-    const wrap = document.getElementById('try-pdf-list');
-    if (!currentUser) { wrap.innerHTML = '<div class="empty-state">Sign in to see your PDFs.</div>'; return; }
-    wrap.innerHTML = '<div class="empty-state"><div class="spin" style="margin:0 auto"></div></div>';
-    try {
-      const d = await fetch(`/api/pdfs?user_id=${currentUser.telegram_id}`).then(r => r.json());
-      const files = d.files || d.pdfs || [];
-      if (!files.length) {
-        wrap.innerHTML = '<div class="empty-state"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>No PDFs yet — create your first resume above!</div>';
-        return;
-      }
-      wrap.innerHTML = files.map(f => {
-        const name = typeof f === 'string' ? f : f.filename;
-        const size = f.size_kb ? ` · ${f.size_kb} KB` : '';
-        const date = f.created_at ? ` · ${new Date(f.created_at).toLocaleDateString()}` : '';
-        return `<div class="pdf-row">
-          <div class="pdf-row-icon">📄</div>
-          <div class="pdf-row-info">
-            <div class="pdf-row-name">${name}</div>
-            <div class="pdf-row-meta">PDF${size}${date}</div>
-          </div>
-          <div class="pdf-row-btns">
-            <a href="/api/pdfs/${name}" target="_blank" class="pdf-icon-btn" title="Download" download>⬇</a>
-            <button class="pdf-icon-btn del" title="Delete" onclick="deletePDF('${name}')">🗑</button>
-          </div>
-        </div>`;
-      }).join('');
-    } catch {
-      wrap.innerHTML = '<div class="empty-state">Failed to load PDFs.</div>';
-    }
-  }
-
-  async function deletePDF(name) {
-    if (!confirm(`Delete ${name}?`)) return;
-    try {
-      await fetch(`/api/pdfs/${name}`, { method: 'DELETE' });
-      tryLoadPDFs();
-    } catch { alert('Delete failed.'); }
-  }
-
-  // ── Token Balance ─────────────────────────────────────────────
-  async function loadTokenBalance() {
-    if (!currentUser) return;
-    try {
-      const r = await fetch(`/api/users/${currentUser.telegram_id}/balance`);
-      if (!r.ok) throw new Error('not ok');
-      const d = await r.json();
-      currentUser.tokens = d.tokens_remaining ?? currentUser.tokens;
-      currentUser.plan   = d.plan || currentUser.plan;
-      _saveSession(currentUser);
-      document.getElementById('bal-remaining').textContent = currentUser.tokens;
-      document.getElementById('bal-plan').textContent = currentUser.plan.toUpperCase();
-      if (d.reset_at) {
-        const dt = new Date(d.reset_at);
-        document.getElementById('bal-reset').textContent = dt.toLocaleDateString(undefined, {month:'short',day:'numeric',year:'numeric'});
-      }
-      // also update nav badge
-      document.getElementById('nav-tokens-badge').textContent = `${currentUser.tokens}t`;
-      document.getElementById('dash-tokens').textContent = `${currentUser.tokens} token${currentUser.tokens !== 1 ? 's' : ''} remaining`;
-    } catch {
-      showResult('balance-result','Could not load balance. Please try again.',false);
-    }
-  }
-
-  async function refreshUserTokens() {
-    if (!currentUser) return;
-    try {
-      const r = await fetch(`/api/users/${currentUser.telegram_id}/balance`);
-      if (!r.ok) return;
-      const d = await r.json();
-      currentUser.tokens = d.tokens_remaining ?? currentUser.tokens;
-      currentUser.plan   = d.plan || currentUser.plan;
-      _saveSession(currentUser);
-      const t = currentUser.tokens;
-      document.getElementById('dash-tokens').textContent    = `${t} token${t !== 1 ? 's' : ''} remaining`;
-      document.getElementById('nav-tokens-badge').textContent = `${t}t`;
-    } catch {}
-  }
-
-  // ── Init ──────────────────────────────────────────────────────
-  initAuth();
+  loadStats();
+  loadHealth();
+  setInterval(loadHealth, 60000);
 </script>
-<!-- GA4 loader deferred to end of body — reduces TBT -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-D43CDBHXJ2"></script>
 </body>
 </html>

@@ -220,6 +220,26 @@ async def serve_app():
     return RedirectResponse("/")
 
 
+@app.get("/features")
+async def serve_features():
+    """Serve the features page"""
+    html_file = settings.static_dir / "features.html"
+    if html_file.exists():
+        return FileResponse(html_file)
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("/")
+
+
+@app.get("/mcp")
+async def serve_mcp_page():
+    """Serve the MCP integration page"""
+    html_file = settings.static_dir / "mcp.html"
+    if html_file.exists():
+        return FileResponse(html_file)
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("/")
+
+
 @app.post("/api/generate", response_model=PDFResponse)
 async def generate_pdf(request: GeneratePDFRequest):
     """
