@@ -679,9 +679,10 @@ async def tailor_smart(
 async def resume_exists(user_id: str):
     """Check whether a saved resume exists for a Telegram user."""
     clean = user_id.strip()
-    has_tex = (settings.output_dir / f"resume_{clean}.tex").exists()
-    has_pdf = (settings.output_dir / f"resume_{clean}.pdf").exists()
-    return {"exists": has_tex or has_pdf, "has_latex": has_tex, "has_pdf": has_pdf}
+    has_tex  = (settings.output_dir / f"resume_{clean}.tex").exists()
+    has_pdf  = (settings.output_dir / f"resume_{clean}.pdf").exists()
+    has_json = (settings.output_dir / f"resume_{clean}.json").exists()
+    return {"exists": has_tex or has_pdf or has_json, "has_latex": has_tex, "has_pdf": has_pdf, "has_json": has_json}
 
 
 # ── Google OAuth endpoints ────────────────────────────────────────────────────
@@ -1052,6 +1053,32 @@ async def apply_smart(
     Tailor resume to JD, compose a cover email, and send via user's Gmail.
     Requires the user to be authenticated with Google OAuth (/login).
     """
+    try:
+        return await _apply_smart_handler(
+            telegram_user_id=telegram_user_id,
+            jd_text=jd_text,
+            recipient_email=recipient_email,
+            job_title=job_title,
+            company_name=company_name,
+            resume_file=resume_file,
+            resume_text=resume_text,
+        )
+    except HTTPException:
+        raise
+    except Exception as _e:
+        logger.exception(f"Unhandled error in apply_smart: {_e}")
+        raise HTTPException(status_code=500, detail=f"Internal error: {_e}")
+
+
+async def _apply_smart_handler(
+    telegram_user_id: str,
+    jd_text: str,
+    recipient_email: str,
+    job_title: str,
+    company_name: str,
+    resume_file: Optional[UploadFile],
+    resume_text: Optional[str],
+):
     if not resume_customizer.is_available():
         raise HTTPException(status_code=503, detail="AI not available. Set GEMINI_API_KEY.")
 
@@ -1068,14 +1095,26 @@ async def apply_smart(
     requirements = document_parser.extract_jd_requirements(jd_text)
     requirements = resume_customizer.analyze_jd(jd_text, requirements)
 
-    # Tailored LaTeX
     clean_uid = telegram_user_id.strip()
     output_filename = f"apply_{clean_uid}"
-    existing_latex = latex_processor.get_latex_source(f"resume_{clean_uid}")
+    renderer = _get_renderer()
 
-    if existing_latex:
-        success, tailored_latex, msg2 = resume_customizer.customize_resume(existing_latex, requirements)
-    elif resume_file:
+    # ── Determine resume source (v2 JSON first, then LaTeX, then uploaded) ────
+    effective_resume_text = None
+
+    json_path = settings.output_dir / f"resume_{clean_uid}.json"
+    if json_path.exists():
+        try:
+            effective_resume_text = json_path.read_text(encoding="utf-8")
+        except Exception:
+            pass
+
+    if not effective_resume_text:
+        existing_latex = latex_processor.get_latex_source(f"resume_{clean_uid}")
+        if existing_latex:
+            effective_resume_text = existing_latex
+
+    if not effective_resume_text and resume_file:
         suffix = Path(resume_file.filename or "resume.pdf").suffix
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp.write(await resume_file.read())
@@ -1084,26 +1123,31 @@ async def apply_smart(
             ok2, parsed_text, parse_msg = document_parser.parse_file(tmp_path)
             if not ok2:
                 raise HTTPException(status_code=400, detail=f"Could not parse file: {parse_msg}")
+            effective_resume_text = parsed_text
         finally:
             tmp_path.unlink(missing_ok=True)
-        success, tailored_latex, msg2 = resume_customizer.create_tailored_resume_from_text(
-            parsed_text, requirements
-        )
-    elif resume_text:
-        success, tailored_latex, msg2 = resume_customizer.create_tailored_resume_from_text(
-            resume_text, requirements
-        )
-    else:
+
+    if not effective_resume_text and resume_text:
+        effective_resume_text = resume_text
+
+    if not effective_resume_text:
         raise HTTPException(
             status_code=400,
-            detail="No resume source. Provide resume_file or resume_text."
+            detail="No resume source. Provide resume_file or resume_text, or create a resume first with /create."
         )
 
-    if not success:
-        raise HTTPException(status_code=500, detail=msg2)
+    # ── v2 pipeline: AI → JSON → Jinja2 → LaTeX → PDF ────────────────────────
+    ok3, resume_dict, msg3 = resume_customizer.generate_tailored_json(
+        effective_resume_text, requirements
+    )
+    if not ok3:
+        raise HTTPException(status_code=500, detail=msg3)
 
-    # Compile PDF
-    pdf_success, _, pdf_msg = latex_processor.compile_latex_to_pdf(tailored_latex, output_filename)
+    ok4, latex, msg4 = renderer.render_from_dict(resume_dict)
+    if not ok4:
+        raise HTTPException(status_code=500, detail=f"Template render failed: {msg4}")
+
+    pdf_success, _, pdf_msg = latex_processor.compile_latex_to_pdf(latex, output_filename)
     if not pdf_success:
         raise HTTPException(status_code=500, detail=pdf_msg)
 
@@ -1327,11 +1371,14 @@ async def create_resume_v2(request: CreateResumeV2Request):
     candidate_name = resume_dict.get("name", "")
     out_filename   = _name_to_filename(candidate_name) if candidate_name else f"resume_{clean_uid}"
 
-    # Save JSON for debugging / inspection
+    # Save JSON for debugging / inspection + as user lookup key
     try:
         import json as _json
         json_path = settings.output_dir / f"{out_filename}.json"
         json_path.write_text(_json.dumps(resume_dict, indent=2, ensure_ascii=False), encoding="utf-8")
+        # Also save as resume_{user_id}.json so apply/tailor can find it by user
+        user_json_path = settings.output_dir / f"resume_{clean_uid}.json"
+        user_json_path.write_text(_json.dumps(resume_dict, indent=2, ensure_ascii=False), encoding="utf-8")
     except Exception as e:
         logger.warning(f"Could not save JSON file: {e}")
 
@@ -1392,11 +1439,14 @@ async def tailor_resume_v2(request: TailorResumeV2Request):
         if candidate_name else f"tailored_{clean_uid}"
     )
 
-    # Save JSON for debugging / inspection
+    # Save JSON for debugging / inspection + as user lookup key
     try:
         import json as _json
         json_path = settings.output_dir / f"{out_filename}.json"
         json_path.write_text(_json.dumps(resume_dict, indent=2, ensure_ascii=False), encoding="utf-8")
+        # Also save as resume_{user_id}.json so apply can find it by user
+        user_json_path = settings.output_dir / f"resume_{clean_uid}.json"
+        user_json_path.write_text(_json.dumps(resume_dict, indent=2, ensure_ascii=False), encoding="utf-8")
     except Exception as e:
         logger.warning(f"Could not save JSON file: {e}")
 
