@@ -1088,7 +1088,7 @@ async def _apply_smart_handler(
         raise HTTPException(status_code=401, detail=msg)
 
     # Sender name
-    user = db.get_telegram_user(telegram_user_id)
+    user = await db.async_get_telegram_user(int(telegram_user_id.strip()))
     sender_name = (user or {}).get("google_name") or (user or {}).get("first_name") or "Applicant"
 
     # JD requirements
