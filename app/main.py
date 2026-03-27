@@ -479,6 +479,17 @@ async def tailor_smart(
     if output_filename.endswith(".pdf"):
         output_filename = output_filename[:-4]
 
+    # Ensure user exists, then deduct tokens
+    try:
+        await db.async_get_or_create_telegram_user(int(clean_user_id))
+        tok_ok, tok_msg = await db.async_check_and_deduct(int(clean_user_id), "tailor")
+        if not tok_ok:
+            raise HTTPException(status_code=402, detail=tok_msg)
+    except HTTPException:
+        raise
+    except Exception as _e:
+        logger.warning(f"Token deduct skipped: {_e}")
+
     # Extract JD requirements
     requirements = document_parser.extract_jd_requirements(jd_text)
     requirements = resume_customizer.analyze_jd(jd_text, requirements)
@@ -641,9 +652,19 @@ async def google_callback(code: str = Query(None), state: str = Query(None), err
         # Mini App flow: return a page that calls Telegram.WebApp.sendData
         return HTMLResponse(_webapp_callback_html(name, email))
     elif source == "web":
-        # Web app flow: redirect back to homepage with success flag
+        # Web app flow: redirect back to homepage with user info embedded in URL
+        # so the frontend never needs an extra API call to show the dashboard
         from fastapi.responses import RedirectResponse
-        return RedirectResponse(f"/?auth=success&uid={telegram_user_id}")
+        import urllib.parse
+        avatar = user_info.get("picture", "") or ""
+        redirect_url = (
+            f"/?auth=success"
+            f"&uid={urllib.parse.quote(str(telegram_user_id))}"
+            f"&name={urllib.parse.quote(name)}"
+            f"&email={urllib.parse.quote(email)}"
+            f"&avatar={urllib.parse.quote(avatar)}"
+        )
+        return RedirectResponse(redirect_url)
     else:
         # Bot flow: plain success page with instruction to return to Telegram
         return HTMLResponse(_callback_html(
@@ -788,29 +809,65 @@ async def webapp_init(body: WebAppInitRequest):
 
 @app.get("/auth/session/{telegram_user_id}")
 async def get_session(telegram_user_id: str):
-    """Return Google profile info for a logged-in Telegram user."""
-    user = db.get_telegram_user(telegram_user_id)
-    tokens = db.get_google_tokens(telegram_user_id)
-    if not user or not tokens:
+    """Return profile + token info for a web user. Requires Google sign-in."""
+    try:
+        user = await db.async_get_telegram_user(int(telegram_user_id))
+    except Exception:
         return {"logged_in": False}
+
+    if not user or not user.get("google_id"):
+        return {"logged_in": False}
+
     return {
-        "logged_in":  True,
-        "google_id":  user.get("google_id"),
-        "email":      user.get("google_email"),
-        "name":       user.get("google_name"),
-        "avatar_url": user.get("google_avatar"),
+        "logged_in":       True,
+        "google_id":       user.get("google_id"),
+        "email":           user.get("google_email"),
+        "name":            user.get("google_name"),
+        "google_name":     user.get("google_name"),
+        "google_email":    user.get("google_email"),
+        "avatar_url":      user.get("google_avatar"),
+        "google_avatar":   user.get("google_avatar"),
+        "tokens_remaining": user.get("tokens_remaining", 5),
+        "plan":            user.get("plan", "free"),
+        "tokens_reset_at": user.get("tokens_reset_at"),
     }
+
+
+@app.get("/auth/gmail/connected/{telegram_user_id}")
+async def gmail_connected(telegram_user_id: str):
+    """Lightweight check: is Gmail connected for this user?
+    Used by the Telegram bot to gate /apply and similar features."""
+    try:
+        tokens = await db.async_get_google_tokens(telegram_user_id)
+        if not tokens:
+            return {"connected": False}
+        user = await db.async_get_telegram_user(int(telegram_user_id))
+        return {
+            "connected": True,
+            "logged_in": True,                       # alias used by older bot code
+            "email":     tokens.get("google_email") or (user or {}).get("google_email", ""),
+            "name":      (user or {}).get("google_name", ""),
+            "avatar_url":(user or {}).get("google_avatar", ""),
+            "tokens_remaining": (user or {}).get("tokens_remaining", 5),
+            "plan":      (user or {}).get("plan", "free"),
+        }
+    except Exception as e:
+        logger.warning(f"gmail_connected check error: {e}")
+        return {"connected": False, "logged_in": False}
 
 
 @app.delete("/auth/session/{telegram_user_id}")
 async def logout(telegram_user_id: str):
-    """Revoke Google tokens and delete session from DB."""
-    tokens = db.get_google_tokens(telegram_user_id)
-    if tokens:
-        token_to_revoke = tokens.get("refresh_token") or tokens.get("access_token")
-        if token_to_revoke:
-            await auth_module.revoke_token(token_to_revoke)
-        db.delete_google_tokens(telegram_user_id)
+    """Revoke Google tokens and clear Google info from DB."""
+    try:
+        tokens = await db.async_get_google_tokens(telegram_user_id)
+        if tokens:
+            token_to_revoke = tokens.get("refresh_token") or tokens.get("access_token")
+            if token_to_revoke:
+                await auth_module.revoke_token(token_to_revoke)
+            await db.async_delete_google_tokens(int(telegram_user_id))
+    except Exception as e:
+        logger.warning(f"Logout error: {e}")
     return {"success": True, "message": "Logged out successfully"}
 
 
@@ -996,6 +1053,17 @@ async def update_resume(request: UpdateResumeRequest):
     if output_filename.endswith(".pdf"):
         output_filename = output_filename[:-4]
 
+    # Ensure user exists, then deduct tokens
+    try:
+        await db.async_get_or_create_telegram_user(int(clean_uid))
+        tok_ok, tok_msg = await db.async_check_and_deduct(int(clean_uid), "update")
+        if not tok_ok:
+            raise HTTPException(status_code=402, detail=tok_msg)
+    except HTTPException:
+        raise
+    except Exception as _e:
+        logger.warning(f"Token deduct skipped: {_e}")
+
     existing_latex = latex_processor.get_latex_source(f"resume_{clean_uid}")
     if not existing_latex:
         raise HTTPException(
@@ -1115,6 +1183,17 @@ async def create_resume_v2(request: CreateResumeV2Request):
     clean_uid    = request.user_id.strip()
     out_filename = f"resume_{clean_uid}"
 
+    # Ensure user exists, then deduct tokens
+    try:
+        await db.async_get_or_create_telegram_user(int(clean_uid))
+        tok_ok, tok_msg = await db.async_check_and_deduct(int(clean_uid), "create")
+        if not tok_ok:
+            raise HTTPException(status_code=402, detail=tok_msg)
+    except HTTPException:
+        raise
+    except Exception as _e:
+        logger.warning(f"Token deduct skipped: {_e}")
+
     # 1 — AI → JSON
     ok, resume_dict, msg = resume_customizer.generate_resume_json(
         request.user_details_text, request.custom_prompt
@@ -1158,6 +1237,17 @@ async def tailor_resume_v2(request: TailorResumeV2Request):
     renderer     = _get_renderer()
     clean_uid    = request.user_id.strip()
     out_filename = f"tailored_{clean_uid}"
+
+    # Ensure user exists, then deduct tokens
+    try:
+        await db.async_get_or_create_telegram_user(int(clean_uid))
+        tok_ok, tok_msg = await db.async_check_and_deduct(int(clean_uid), "tailor")
+        if not tok_ok:
+            raise HTTPException(status_code=402, detail=tok_msg)
+    except HTTPException:
+        raise
+    except Exception as _e:
+        logger.warning(f"Token deduct skipped: {_e}")
 
     # Extract + enhance JD requirements
     requirements = document_parser.extract_jd_requirements(request.jd_text)
@@ -1218,9 +1308,12 @@ async def create_or_get_user_session(request: Request):
 
 @app.get("/api/users/{telegram_id}/balance")
 async def get_token_balance(telegram_id: str):
-    """Get token balance for a user."""
+    """Get token balance for a user (auto-creates if not found)."""
     try:
         profile = await db.async_get_telegram_user(int(telegram_id))
+        if not profile:
+            # Auto-create user so balance always works
+            profile = await db.async_get_or_create_telegram_user(int(telegram_id))
         if not profile:
             raise HTTPException(status_code=404, detail="User not found")
 

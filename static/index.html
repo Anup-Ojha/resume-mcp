@@ -1582,54 +1582,100 @@ Python, FastAPI, Docker, Kubernetes, PostgreSQL, React, AWS"></textarea>
   loadStats(); loadHealth(); setInterval(loadHealth, 60000);
 
   // ── Auth ──────────────────────────────────────────────────────
-  // Web user ID: stored in localStorage, used as the user identifier
-  // with the backend (same DB as Telegram bot)
+  // Session is cached in localStorage with a 24-hour TTL.
+  // After Google OAuth the redirect URL carries name/email/avatar
+  // so we never need a back-end round-trip to show the dashboard.
+
+  const SESSION_KEY = 'rfc_session';
+  const SESSION_TTL = 24 * 60 * 60 * 1000; // 24 h
+
+  let currentUser = null; // { telegram_id, name, email, avatar, tokens, plan, saved_at }
+
+  function _saveSession(user) {
+    user.saved_at = Date.now();
+    localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    localStorage.setItem('rfc_uid', user.telegram_id);
+  }
+
+  function _loadSession() {
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (!raw) return null;
+      const s = JSON.parse(raw);
+      if (!s.telegram_id) return null;
+      if (Date.now() - (s.saved_at || 0) > SESSION_TTL) {
+        localStorage.removeItem(SESSION_KEY);
+        return null;
+      }
+      return s;
+    } catch { return null; }
+  }
+
+  function _clearSession() {
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem('rfc_uid');
+  }
+
   function getOrCreateWebUid() {
+    const cached = _loadSession();
+    if (cached) return cached.telegram_id;
     let uid = localStorage.getItem('rfc_uid');
-    if (!uid) {
-      // Generate a unique ID that fits in BigInteger and won't clash with real Telegram IDs
-      uid = String(Date.now());
-      localStorage.setItem('rfc_uid', uid);
-    }
+    if (!uid) { uid = String(Date.now()); localStorage.setItem('rfc_uid', uid); }
     return uid;
   }
 
-  let currentUser = null; // { telegram_id, name, email, avatar, tokens, plan }
-
-  async function initAuth() {
-    // Check if we're returning from OAuth callback
+  // Called on every page load
+  function initAuth() {
     const params = new URLSearchParams(window.location.search);
+
+    // ── Returning from Google OAuth ───────────────────────────
     if (params.get('auth') === 'success') {
-      const uid = params.get('uid');
-      if (uid) localStorage.setItem('rfc_uid', uid);
-      // Clean URL
-      window.history.replaceState({}, '', '/');
-    }
+      const uid    = params.get('uid')    || '';
+      const name   = params.get('name')   || 'User';
+      const email  = params.get('email')  || '';
+      const avatar = params.get('avatar') || '';
 
-    const uid = localStorage.getItem('rfc_uid');
-    if (!uid) {
-      showAuthWall(); return;
-    }
-
-    try {
-      const session = await fetch(`/auth/session/${uid}`).then(r => r.json());
-      if (session.logged_in) {
-        currentUser = {
-          telegram_id: uid,
-          name: session.name || session.google_name || 'User',
-          email: session.email || session.google_email || '',
-          avatar: session.avatar_url || session.google_avatar || '',
-          tokens: session.tokens_remaining ?? 5,
-          plan: session.plan || 'free',
-          reset_at: session.tokens_reset_at || null,
-        };
+      if (uid) {
+        const user = { telegram_id: uid, name, email, avatar, tokens: 5, plan: 'free' };
+        _saveSession(user);
+        currentUser = user;
+        // Clean URL without reload
+        window.history.replaceState({}, '', '/');
         showDashboard();
-      } else {
-        showAuthWall();
+        _bgRefreshTokens(); // fetch real token count silently
+        return;
       }
-    } catch {
-      showAuthWall();
     }
+
+    // ── Check cached session ──────────────────────────────────
+    const cached = _loadSession();
+    if (cached) {
+      currentUser = cached;
+      showDashboard();
+      _bgRefreshTokens();
+      return;
+    }
+
+    showAuthWall();
+  }
+
+  // Fetch fresh token balance in the background (does not block the UI)
+  async function _bgRefreshTokens() {
+    if (!currentUser) return;
+    try {
+      const r = await fetch(`/api/users/${currentUser.telegram_id}/balance`);
+      if (!r.ok) return;
+      const d = await r.json();
+      currentUser.tokens = d.tokens_remaining ?? currentUser.tokens;
+      currentUser.plan   = d.plan || currentUser.plan;
+      _saveSession(currentUser);
+      // Patch visible counters
+      const t = currentUser.tokens;
+      const el = document.getElementById('dash-tokens');
+      if (el) el.textContent = `${t} token${t !== 1 ? 's' : ''} remaining`;
+      const badge = document.getElementById('nav-tokens-badge');
+      if (badge) badge.textContent = `${t}t`;
+    } catch { /* silent */ }
   }
 
   function showAuthWall() {
@@ -1644,21 +1690,25 @@ Python, FastAPI, Docker, Kubernetes, PostgreSQL, React, AWS"></textarea>
     document.getElementById('auth-wall').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
 
-    // Update user bar
-    document.getElementById('dash-name').textContent = currentUser.name;
+    const t = currentUser.tokens ?? 5;
+
+    // User info bar
+    document.getElementById('dash-name').textContent  = currentUser.name;
     document.getElementById('dash-email').textContent = currentUser.email;
-    document.getElementById('dash-avatar').src = currentUser.avatar;
-    document.getElementById('dash-tokens').textContent = `${currentUser.tokens} token${currentUser.tokens !== 1 ? 's' : ''} remaining`;
-    document.getElementById('dash-plan').textContent = currentUser.plan.toUpperCase();
+    const dashAv = document.getElementById('dash-avatar');
+    if (dashAv && currentUser.avatar) dashAv.src = currentUser.avatar;
+    document.getElementById('dash-tokens').textContent = `${t} token${t !== 1 ? 's' : ''} remaining`;
+    document.getElementById('dash-plan').textContent   = (currentUser.plan || 'free').toUpperCase();
 
-    // Update nav chip
+    // Nav chip
     document.getElementById('nav-signin-btn').style.display = 'none';
-    document.getElementById('nav-user-chip').style.display = 'flex';
-    document.getElementById('nav-avatar').src = currentUser.avatar;
-    document.getElementById('nav-user-name').textContent = currentUser.name.split(' ')[0];
-    document.getElementById('nav-tokens-badge').textContent = `${currentUser.tokens}t`;
+    document.getElementById('nav-user-chip').style.display  = 'flex';
+    const navAv = document.getElementById('nav-avatar');
+    if (navAv && currentUser.avatar) navAv.src = currentUser.avatar;
+    document.getElementById('nav-user-name').textContent   = (currentUser.name || 'User').split(' ')[0];
+    document.getElementById('nav-tokens-badge').textContent = `${t}t`;
 
-    // Auto-load PDFs
+    // Auto-load PDFs tab
     tryLoadPDFs();
   }
 
@@ -1676,12 +1726,13 @@ Python, FastAPI, Docker, Kubernetes, PostgreSQL, React, AWS"></textarea>
     }
   }
 
-  async function signOut() {
+  function signOut() {
     const uid = localStorage.getItem('rfc_uid');
     if (uid) {
-      try { await fetch(`/auth/session/${uid}`, { method: 'DELETE' }); } catch {}
+      // Fire-and-forget server-side revoke (non-blocking)
+      fetch(`/auth/session/${uid}`, { method: 'DELETE' }).catch(() => {});
     }
-    localStorage.removeItem('rfc_uid');
+    _clearSession();
     currentUser = null;
     showAuthWall();
   }
@@ -1723,7 +1774,7 @@ Python, FastAPI, Docker, Kubernetes, PostgreSQL, React, AWS"></textarea>
       const r = await fetch('/api/v2/create-resume', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ user_id: currentUser.telegram_id, user_details: details, filename })
+        body: JSON.stringify({ user_id: currentUser.telegram_id, user_details_text: details })
       });
       const d = await r.json();
       if (d.success || d.filename) {
@@ -1751,11 +1802,9 @@ Python, FastAPI, Docker, Kubernetes, PostgreSQL, React, AWS"></textarea>
     setLoading('tailor-btn','tailor-spinner',true);
     document.getElementById('tailor-result').className = 'try-result';
     try {
-      const filename = document.getElementById('tailor-filename').value.trim() || `resume_tailored_${currentUser.telegram_id}`;
       const resumeText = document.getElementById('tailor-resume').value.trim();
-      const body = { user_id: currentUser.telegram_id, jd_text: jd, filename };
-      if (resumeText) body.resume_text = resumeText;
-      const r = await fetch('/api/tailor-smart', {
+      const body = { user_id: currentUser.telegram_id, jd_text: jd, resume_text: resumeText || '' };
+      const r = await fetch('/api/v2/tailor-resume', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify(body)
@@ -1790,7 +1839,7 @@ Python, FastAPI, Docker, Kubernetes, PostgreSQL, React, AWS"></textarea>
       const r = await fetch('/api/update-resume', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ user_id: currentUser.telegram_id, instructions, filename })
+        body: JSON.stringify({ user_id: currentUser.telegram_id, update_instructions: instructions })
       });
       const d = await r.json();
       if (d.success || d.filename) {
@@ -1855,27 +1904,38 @@ Python, FastAPI, Docker, Kubernetes, PostgreSQL, React, AWS"></textarea>
   async function loadTokenBalance() {
     if (!currentUser) return;
     try {
-      const session = await fetch(`/auth/session/${currentUser.telegram_id}`).then(r => r.json());
-      document.getElementById('bal-remaining').textContent = session.tokens_remaining ?? '—';
-      document.getElementById('bal-plan').textContent = (session.plan || 'free').toUpperCase();
-      if (session.tokens_reset_at) {
-        const d = new Date(session.tokens_reset_at);
-        document.getElementById('bal-reset').textContent = d.toLocaleDateString(undefined, {month:'short',day:'numeric',year:'numeric'});
+      const r = await fetch(`/api/users/${currentUser.telegram_id}/balance`);
+      if (!r.ok) throw new Error('not ok');
+      const d = await r.json();
+      currentUser.tokens = d.tokens_remaining ?? currentUser.tokens;
+      currentUser.plan   = d.plan || currentUser.plan;
+      _saveSession(currentUser);
+      document.getElementById('bal-remaining').textContent = currentUser.tokens;
+      document.getElementById('bal-plan').textContent = currentUser.plan.toUpperCase();
+      if (d.reset_at) {
+        const dt = new Date(d.reset_at);
+        document.getElementById('bal-reset').textContent = dt.toLocaleDateString(undefined, {month:'short',day:'numeric',year:'numeric'});
       }
+      // also update nav badge
+      document.getElementById('nav-tokens-badge').textContent = `${currentUser.tokens}t`;
+      document.getElementById('dash-tokens').textContent = `${currentUser.tokens} token${currentUser.tokens !== 1 ? 's' : ''} remaining`;
     } catch {
-      showResult('balance-result','Could not load balance.',false);
+      showResult('balance-result','Could not load balance. Please try again.',false);
     }
   }
 
   async function refreshUserTokens() {
     if (!currentUser) return;
     try {
-      const session = await fetch(`/auth/session/${currentUser.telegram_id}`).then(r => r.json());
-      if (session.logged_in) {
-        currentUser.tokens = session.tokens_remaining ?? currentUser.tokens;
-        document.getElementById('dash-tokens').textContent = `${currentUser.tokens} token${currentUser.tokens !== 1 ? 's' : ''} remaining`;
-        document.getElementById('nav-tokens-badge').textContent = `${currentUser.tokens}t`;
-      }
+      const r = await fetch(`/api/users/${currentUser.telegram_id}/balance`);
+      if (!r.ok) return;
+      const d = await r.json();
+      currentUser.tokens = d.tokens_remaining ?? currentUser.tokens;
+      currentUser.plan   = d.plan || currentUser.plan;
+      _saveSession(currentUser);
+      const t = currentUser.tokens;
+      document.getElementById('dash-tokens').textContent    = `${t} token${t !== 1 ? 's' : ''} remaining`;
+      document.getElementById('nav-tokens-badge').textContent = `${t}t`;
     } catch {}
   }
 

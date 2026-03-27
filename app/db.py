@@ -276,6 +276,10 @@ class PostgresDB:
     def delete_google_tokens(self, telegram_id: str) -> bool:
         return _run(self._delete_google_tokens(int(telegram_id)))
 
+    async def async_delete_google_tokens(self, telegram_id: int) -> bool:
+        """Awaitable version — call this from FastAPI endpoints."""
+        return await self._delete_google_tokens(telegram_id)
+
     async def _delete_google_tokens(self, telegram_id: int) -> bool:
         async with AsyncSessionLocal() as session:
             result = await session.execute(

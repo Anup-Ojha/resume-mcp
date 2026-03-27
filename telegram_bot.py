@@ -29,12 +29,18 @@ WEBAPP_URL         = os.environ.get("WEBAPP_URL", "http://localhost:8000/webapp/
 
 import requests as _requests
 
-def _api_call(method: str, path: str, **kwargs):
+def _api_call(method: str, path: str, timeout: int = 30, **kwargs):
     """Make HTTP call to the resume-generator API."""
     base = os.environ.get("RESUME_API_URL", "http://resume-generator:8000")
     url = f"{base.rstrip('/')}{path}"
     try:
-        resp = getattr(_requests, method)(url, timeout=10, **kwargs)
+        resp = getattr(_requests, method)(url, timeout=timeout, **kwargs)
+        if resp.status_code >= 400:
+            logger.warning(f"API call {method} {path} returned {resp.status_code}")
+            try:
+                return resp.json()
+            except Exception:
+                return None
         return resp.json() if resp.content else {}
     except Exception as e:
         logger.warning(f"API call failed {method} {path}: {e}")
@@ -252,7 +258,9 @@ def get_auth_url(user_id: str) -> str:
 
 
 def get_session_info(user_id: str) -> dict:
-    return _get(f"/auth/session/{user_id}", timeout=10)
+    """Check if Gmail is connected for this user.
+    Uses /auth/gmail/connected — a dedicated async-safe endpoint."""
+    return _get(f"/auth/gmail/connected/{user_id}", timeout=10)
 
 
 def logout_user(user_id: str) -> dict:
@@ -371,14 +379,36 @@ def _optional_prompt_keyboard() -> InlineKeyboardMarkup:
 
 # ── /start ────────────────────────────────────────────────────────────────────
 
+def _build_main_keyboard(gmail_connected: bool, gmail_email: str = "") -> InlineKeyboardMarkup:
+    """Build the /start keyboard. Gmail button reflects real connection state."""
+    if gmail_connected and gmail_email:
+        gmail_btn = InlineKeyboardButton(f"✅ Gmail: {gmail_email}", callback_data="gmail_status")
+    elif gmail_connected:
+        gmail_btn = InlineKeyboardButton("✅ Gmail Connected",        callback_data="gmail_status")
+    else:
+        gmail_btn = InlineKeyboardButton("🔐 Connect Gmail",          callback_data="login")
+
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📄 Create Resume",       callback_data="create")],
+        [InlineKeyboardButton("✏️ Update My Resume",    callback_data="update")],
+        [InlineKeyboardButton("🎯 Tailor Resume to JD", callback_data="tailor")],
+        [InlineKeyboardButton("📧 Apply via Email",      callback_data="apply")],
+        [InlineKeyboardButton("📋 List My PDFs",        callback_data="list")],
+        [InlineKeyboardButton("💳 Token Balance",       callback_data="balance"), gmail_btn],
+        [InlineKeyboardButton("🔍 API Status",          callback_data="status")],
+    ])
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tg_user = update.effective_user
 
-    # ── Auto-register via Telegram ID (no Gmail required) ─────────────────────
-    tokens    = 5
-    plan      = "FREE"
-    name      = tg_user.first_name or "there"
-    reset_str = ""
+    # ── Step 1: create/fetch session by Telegram ID ───────────────────────────
+    tokens        = 5
+    plan          = "FREE"
+    name          = tg_user.first_name or "there"
+    reset_str     = ""
+    gmail_connected = False
+    gmail_email   = ""
 
     resp = _api_call("post", "/api/users/session", json={
         "telegram_id": str(tg_user.id),
@@ -388,10 +418,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if resp and resp.get("ok"):
         profile = resp.get("user") or {}
         context.user_data["_profile"] = profile
-        tokens    = profile.get("tokens_remaining", 5)
-        plan      = profile.get("plan", "free").upper()
-        name      = profile.get("google_name") or tg_user.first_name or "there"
-        reset_at  = profile.get("tokens_reset_at")
+        tokens  = profile.get("tokens_remaining", 5)
+        plan    = profile.get("plan", "free").upper()
+        name    = profile.get("google_name") or tg_user.first_name or "there"
+        reset_at = profile.get("tokens_reset_at")
         if reset_at:
             try:
                 reset_dt = datetime.fromisoformat(reset_at)
@@ -402,22 +432,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 pass
 
-    keyboard = [
-        [InlineKeyboardButton("📄 Create Resume",        callback_data="create")],
-        [InlineKeyboardButton("✏️ Update My Resume",     callback_data="update")],
-        [InlineKeyboardButton("🎯 Tailor Resume to JD",  callback_data="tailor")],
-        [InlineKeyboardButton("📧 Apply via Email",       callback_data="apply")],
-        [InlineKeyboardButton("📋 List My PDFs",         callback_data="list")],
-        [InlineKeyboardButton("💳 Token Balance",        callback_data="balance"),
-         InlineKeyboardButton("🔐 Connect Gmail",        callback_data="login")],
-        [InlineKeyboardButton("🔍 API Status",           callback_data="status")],
-    ]
+    # ── Step 2: check Gmail connection status ─────────────────────────────────
+    gmail_info = get_session_info(str(tg_user.id))
+    if gmail_info.get("connected") or gmail_info.get("logged_in"):
+        gmail_connected = True
+        gmail_email = gmail_info.get("email", "")
+        # Use Google name if we have it and session didn't give us one
+        if not name or name == tg_user.first_name:
+            name = gmail_info.get("name") or name
+
     await update.message.reply_text(
         f"👋 Welcome, *{name}*!\n"
         f"🔑 *{tokens} token(s)*{reset_str}  |  Plan: {plan}\n\n"
         "What would you like to do?",
         parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        reply_markup=_build_main_keyboard(gmail_connected, gmail_email)
     )
 
 
@@ -432,12 +461,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/update \\- Update your existing saved resume\n"
         "/tailor \\- Tailor your resume to a job description\n"
         "/list \\- List generated PDFs\n\n"
-        "*Gmail:*\n"
-        "/login \\- Connect your Google account\n"
-        "/whoami \\- Show connected Google account\n"
+        "*Gmail \\(connect via the button in /start\\):*\n"
+        "/whoami \\- Show your connected Google account\n"
         "/inbox \\- Show last 5 unread Gmail messages\n"
         "/search \\<query\\> \\- Search your Gmail\n"
-        "/logout \\- Disconnect Google account\n\n"
+        "/logout \\- Disconnect your Google account\n\n"
         "*Other:*\n"
         "/status \\- Check API health\n"
         "/cancel \\- Cancel current operation\n"
@@ -1016,7 +1044,23 @@ async def tailor_got_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ── Google / Gmail commands ───────────────────────────────────────────────────
 
 async def login_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /login — kept as an alias so old links still work.
+    Checks if already connected; if so, tells user. Otherwise gives the link.
+    """
     user_id = str(update.effective_user.id)
+
+    # Already connected?
+    info = get_session_info(user_id)
+    if info.get("connected") or info.get("logged_in"):
+        email = info.get("email", "your Google account")
+        await update.message.reply_text(
+            f"✅ You're already connected as *{email}*.\n\n"
+            "Send /start to see your menu, /logout to disconnect.",
+            parse_mode="Markdown"
+        )
+        return
+
     url = get_auth_url(user_id)
     if not url:
         await update.message.reply_text(
@@ -1025,8 +1069,11 @@ async def login_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     await update.message.reply_text(
-        f"🔐 Click the link below to connect your Google account:\n\n{url}\n\n"
-        "After authorising, you can use /inbox and /search to read your Gmail."
+        "🔐 *Connect your Google / Gmail account*\n\n"
+        "Tap the link below to authorise:\n\n"
+        f"{url}\n\n"
+        "_After connecting, send /start to refresh your menu._",
+        parse_mode="Markdown"
     )
 
 
@@ -1035,7 +1082,11 @@ async def logout_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔓 Logging out…")
     result = logout_user(user_id)
     if result.get("success"):
-        await update.message.reply_text("✅ Disconnected your Google account.\nUse /login to reconnect.")
+        await update.message.reply_text(
+            "✅ Disconnected your Google account.\n\n"
+            "Send /start and tap *Connect Gmail* to reconnect.",
+            parse_mode="Markdown"
+        )
     else:
         await update.message.reply_text(f"⚠️ {result.get('message', 'Logout failed')}")
 
@@ -1043,17 +1094,19 @@ async def logout_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def whoami_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
     info = get_session_info(user_id)
-    if not info.get("logged_in"):
+    if not (info.get("connected") or info.get("logged_in")):
         await update.message.reply_text(
-            "You are not connected to Google yet.\nUse /login to connect your account."
+            "You are not connected to Google yet.\n\n"
+            "Send /start and tap *Connect Gmail* to get started.",
+            parse_mode="Markdown"
         )
         return
     name  = info.get("name", "")
     email = info.get("email", "")
     await update.message.reply_text(
-        f"🔐 *Connected Google Account*\n\n"
+        f"✅ *Connected Google Account*\n\n"
         f"👤 Name: {name}\n"
-        f"📧 Email: {email}\n\n"
+        f"📧 Email: `{email}`\n\n"
         "Use /inbox to read your Gmail or /logout to disconnect.",
         parse_mode="Markdown"
     )
@@ -1466,17 +1519,48 @@ async def handle_inline_buttons(update: Update, context: ContextTypes.DEFAULT_TY
         url = get_auth_url(uid)
         if url:
             await query.message.reply_text(
-                f"🔐 Click to connect your Google / Gmail account:\n\n{url}"
+                "🔐 *Connect your Google / Gmail account*\n\n"
+                "Tap the link below to authorise. After connecting you'll be able to:\n"
+                "• Send job applications via Gmail\n"
+                "• Read your inbox for job alerts\n\n"
+                f"{url}\n\n"
+                "_Once done, send /start to refresh your menu._",
+                parse_mode="Markdown"
             )
         else:
             await query.message.reply_text(
                 "❌ Could not generate login URL. Ensure GOOGLE_CLIENT_ID is configured."
             )
-    elif query.data == "apply":
+    elif query.data == "gmail_status":
+        # User tapped the "✅ Gmail Connected" button — show account info
+        uid  = str(query.from_user.id)
+        info = get_session_info(uid)
+        email = info.get("email", "unknown")
+        name  = info.get("name", "")
+        await query.answer()   # dismiss loading spinner
         await query.message.reply_text(
-            "Send /apply to start the guided email-application flow!\n\n"
-            "Make sure you've connected your Gmail first with /login."
+            f"✅ *Gmail Connected*\n\n"
+            f"Account: `{email}`\n"
+            f"Name: {name}\n\n"
+            "Use /inbox to read messages, /logout to disconnect.",
+            parse_mode="Markdown"
         )
+    elif query.data == "apply":
+        uid  = str(query.from_user.id)
+        info = get_session_info(uid)
+        if info.get("connected") or info.get("logged_in"):
+            await query.message.reply_text(
+                "Send /apply to start the guided email-application flow!"
+            )
+        else:
+            url = get_auth_url(uid)
+            await query.message.reply_text(
+                "📧 *Apply via Email* needs your Gmail connected first.\n\n"
+                f"👉 [Connect Gmail]({url})\n\n"
+                "_After connecting, tap Apply via Email again._",
+                parse_mode="Markdown",
+                disable_web_page_preview=True
+            )
     elif query.data == "status":
         health = check_api_health()
         api_status = health.get("status", "unknown")
@@ -1516,23 +1600,16 @@ async def webapp_data_received(update: Update, context: ContextTypes.DEFAULT_TYP
                 tokens = profile.get("tokens_remaining", 5)
                 plan   = profile.get("plan", "free").upper()
 
-                keyboard = [
-                    [InlineKeyboardButton("📄 Create Resume",        callback_data="create")],
-                    [InlineKeyboardButton("✏️ Update My Resume",     callback_data="update")],
-                    [InlineKeyboardButton("🎯 Tailor Resume to JD",  callback_data="tailor")],
-                    [InlineKeyboardButton("📧 Apply via Email",       callback_data="apply")],
-                    [InlineKeyboardButton("📋 List My PDFs",         callback_data="list")],
-                    [InlineKeyboardButton("💳 Token Balance",        callback_data="balance"),
-                     InlineKeyboardButton("🔐 Connect Gmail",        callback_data="login")],
-                    [InlineKeyboardButton("🔍 API Status",           callback_data="status")],
-                ]
+                # Gmail is connected at this point (webapp auth_complete)
+                gmail_info  = get_session_info(str(tg_user.id))
+                gmail_email = gmail_info.get("email", "")
                 await update.message.reply_text(
                     f"✅ *Welcome, {name}!*\n\n"
-                    f"You're signed in with Google.\n"
+                    f"Gmail connected ✅\n"
                     f"🔑 *{tokens} token(s)* | Plan: {plan}\n\n"
                     "What would you like to do?",
                     parse_mode="Markdown",
-                    reply_markup=InlineKeyboardMarkup(keyboard)
+                    reply_markup=_build_main_keyboard(True, gmail_email)
                 )
                 return
 
@@ -1552,11 +1629,16 @@ async def balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     telegram_id = str(update.effective_user.id)
     resp = _api_call("get", f"/api/users/{telegram_id}/balance")
-    if not resp:
-        await msg_obj.reply_text("⚠️ Database not available.")
-        return
-    if not resp.get("ok"):
-        await msg_obj.reply_text("Could not fetch your profile. Try /start.")
+    if not resp or not resp.get("ok"):
+        # Fallback: try to create session first, then retry balance
+        _api_call("post", "/api/users/session", json={
+            "telegram_id": telegram_id,
+            "first_name": update.effective_user.first_name or "",
+            "username": update.effective_user.username or "",
+        })
+        resp = _api_call("get", f"/api/users/{telegram_id}/balance")
+    if not resp or not resp.get("ok"):
+        await msg_obj.reply_text("⚠️ Could not fetch token balance. Please try /start first.")
         return
 
     tokens    = resp.get("tokens_remaining", 0)
