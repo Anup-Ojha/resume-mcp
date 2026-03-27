@@ -897,7 +897,7 @@ async def webapp_init(body: WebAppInitRequest):
     if not telegram_id:
         raise HTTPException(status_code=400, detail="No user ID in initData")
 
-    profile = db.get_telegram_user(telegram_id)
+    profile = await db.async_get_telegram_user(int(telegram_id))
     if not profile:
         return {
             "verified":       True,

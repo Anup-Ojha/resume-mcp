@@ -40,19 +40,35 @@ def _run(coro):
     Run an async coroutine from synchronous context.
     Used so the public interface stays sync-compatible (callers don't need to
     await these methods), while internals are async SQLAlchemy.
+
+    Python 3.12 note: ThreadPoolExecutor threads inherit the parent's asyncio
+    context vars (including the running loop), so asyncio.run() would raise
+    "cannot be called from a running event loop" even in a new thread.
+    We work around this by explicitly creating and managing a new event loop.
     """
+    import concurrent.futures
+
+    def _run_in_new_loop():
+        new_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(new_loop)
+        try:
+            return new_loop.run_until_complete(coro)
+        finally:
+            new_loop.close()
+            asyncio.set_event_loop(None)
+
     try:
         loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # We're inside an async context (FastAPI) — schedule and return future
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                future = pool.submit(asyncio.run, coro)
-                return future.result()
-        else:
-            return loop.run_until_complete(coro)
     except RuntimeError:
-        return asyncio.run(coro)
+        loop = None
+
+    if loop and loop.is_running():
+        # Called from an async context (FastAPI/uvicorn) — run in a fresh thread
+        # with its own event loop to avoid context-var loop inheritance.
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(_run_in_new_loop).result()
+    else:
+        return _run_in_new_loop()
 
 
 class PostgresDB:

@@ -405,6 +405,44 @@
     .step-3 h3 { font-size: .9375rem; font-weight: 600; color: var(--text-1); margin-top: 4px; }
     .step-3 p  { font-size: .8375rem; color: var(--text-2); line-height: 1.65; }
 
+    /* ── Apply via Email flow ───────────────────────────────────── */
+    #apply { padding: 88px 0; }
+
+    .apply-flow {
+      margin-top: 44px;
+      display: flex; flex-direction: column; gap: 0;
+      border-left: 2px solid var(--border);
+      padding-left: 0;
+      max-width: 640px;
+    }
+
+    .apply-step {
+      display: flex; gap: 0; align-items: flex-start;
+      padding-bottom: 32px; position: relative;
+    }
+    .apply-step:last-child { padding-bottom: 0; }
+
+    .apply-num {
+      width: 42px; height: 42px; border-radius: 50%;
+      background: var(--bg); border: 2px solid var(--border);
+      color: var(--text-3); font-size: .8rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-left: -22px; margin-right: 24px;
+      position: relative; z-index: 1;
+      transition: background .2s, border-color .2s, color .2s;
+    }
+    .apply-step:hover .apply-num {
+      background: var(--accent); border-color: var(--accent); color: #fff;
+      box-shadow: 0 0 0 5px var(--accent-bg);
+    }
+
+    .apply-body h4 { font-size: .9375rem; font-weight: 600; color: var(--text-1); margin-bottom: 4px; }
+    .apply-body p  { font-size: .8375rem; color: var(--text-2); line-height: 1.65; }
+    .apply-body code {
+      font-size: .8rem; background: var(--bg-3);
+      padding: 1px 6px; border-radius: 5px; color: var(--accent);
+    }
+
     /* ── Channels ───────────────────────────────────────────────── */
     #channels { padding: 88px 0; }
 
@@ -630,8 +668,71 @@
   </div>
 </section>
 
+<!-- APPLY VIA EMAIL -->
+<section id="apply" class="sec-alt" style="padding:88px 0">
+  <div class="wrap">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <div class="eyebrow" style="margin:0">Apply via Email</div>
+      <span style="font-size:.72rem;font-weight:600;background:var(--accent);color:#fff;padding:3px 9px;border-radius:20px;letter-spacing:.04em">Telegram Bot</span>
+    </div>
+    <h2 style="max-width:560px">Tailor your resume &amp; send the application — in one command</h2>
+    <p class="lead" style="max-width:560px">Connect your Gmail, paste any job description, and Resume-MCP writes a tailored resume + cover email and sends it to the recruiter automatically.</p>
+
+    <div class="apply-flow">
+
+      <div class="apply-step">
+        <div class="apply-num">01</div>
+        <div class="apply-body">
+          <h4>Connect Gmail</h4>
+          <p>Use <code>/login</code> to link your Google account via OAuth. We only request send permission — we never read your inbox.</p>
+        </div>
+      </div>
+
+      <div class="apply-step">
+        <div class="apply-num">02</div>
+        <div class="apply-body">
+          <h4>Paste the job description</h4>
+          <p>Send the JD as text, PDF, or image. The AI extracts the role, company, and recruiter email automatically.</p>
+        </div>
+      </div>
+
+      <div class="apply-step">
+        <div class="apply-num">03</div>
+        <div class="apply-body">
+          <h4>Resume tailored to the role</h4>
+          <p>Gemini rewrites your resume — bolding JD keywords, reordering bullets, weaving in required skills. A fresh PDF is compiled in seconds.</p>
+        </div>
+      </div>
+
+      <div class="apply-step">
+        <div class="apply-num">04</div>
+        <div class="apply-body">
+          <h4>Cover email written by AI</h4>
+          <p>A concise, professional application email is drafted with your name, the role, and the company — under 200 words, warm tone.</p>
+        </div>
+      </div>
+
+      <div class="apply-step">
+        <div class="apply-num">05</div>
+        <div class="apply-body">
+          <h4>Sent via your Gmail</h4>
+          <p>The tailored PDF is attached and the email is dispatched from your own Gmail address — no third-party SMTP, no forwarding.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="margin-top:36px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <a href="https://t.me/resumemcpbot" class="btn-primary" target="_blank" rel="noopener" style="font-size:.9rem;padding:12px 24px">
+        Try /apply on Telegram →
+      </a>
+      <span style="font-size:.85rem;color:var(--text-3)">Web App version coming soon</span>
+    </div>
+  </div>
+</section>
+
 <!-- HOW IT WORKS -->
-<section id="how" class="sec-alt" style="padding:88px 0">
+<section id="how" class="sec" style="padding:88px 0">
   <div class="wrap">
     <div class="eyebrow">How it works</div>
     <h2>Three steps, 30 seconds</h2>
@@ -692,6 +793,10 @@
             <div class="cmd-row">
               <span class="cmd-tag">/list</span>
               <span class="cmd-desc">View and re-download all previously generated PDFs.</span>
+            </div>
+            <div class="cmd-row">
+              <span class="cmd-tag">/apply</span>
+              <span class="cmd-desc">Paste a JD → AI tailors your resume, writes a cover email, and sends it via Gmail.</span>
             </div>
           </div>
           <a href="https://t.me/resumemcpbot" class="btn-primary" target="_blank" rel="noopener" style="font-size:.875rem;padding:10px 20px">
