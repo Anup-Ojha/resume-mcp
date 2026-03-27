@@ -1238,11 +1238,20 @@ async def gmail_search(
 #   Zero chance of wrong packages, missing \end{itemize}, or spacing bugs.
 # ══════════════════════════════════════════════════════════════════════════════
 
+def _name_to_filename(name: str) -> str:
+    """Convert a candidate name into a safe PDF filename stem.
+    e.g. 'Amith C' → 'Amith_C_Resume', 'Anup Ojha' → 'Anup_Ojha_Resume'
+    """
+    import re
+    safe = re.sub(r"[^a-zA-Z0-9\s]", "", name or "").strip()
+    safe = re.sub(r"\s+", "_", safe)
+    return f"{safe}_Resume" if safe else "Resume"
+
+
 class CreateResumeV2Request(BaseModel):
     user_details_text: str
     user_id: str
     custom_prompt: Optional[str] = None
-    candidate_name: Optional[str] = None  # If set, overrides AI-extracted name
 
 
 class TailorResumeV2Request(BaseModel):
@@ -1273,9 +1282,8 @@ async def create_resume_v2(request: CreateResumeV2Request):
     if not resume_customizer.is_available():
         raise HTTPException(status_code=503, detail="AI not available. Set GEMINI_API_KEY.")
 
-    renderer     = _get_renderer()
-    clean_uid    = request.user_id.strip()
-    out_filename = f"resume_{clean_uid}"
+    renderer  = _get_renderer()
+    clean_uid = request.user_id.strip()
 
     # Ensure user exists, then deduct tokens
     try:
@@ -1291,10 +1299,13 @@ async def create_resume_v2(request: CreateResumeV2Request):
     # 1 — AI → JSON
     ok, resume_dict, msg = resume_customizer.generate_resume_json(
         request.user_details_text, request.custom_prompt,
-        candidate_name=request.candidate_name,
     )
     if not ok:
         raise HTTPException(status_code=500, detail=msg)
+
+    # Auto-name the PDF from the AI-extracted candidate name
+    candidate_name = resume_dict.get("name", "")
+    out_filename   = _name_to_filename(candidate_name) if candidate_name else f"resume_{clean_uid}"
 
     # Save JSON for debugging / inspection
     try:
@@ -1329,9 +1340,8 @@ async def tailor_resume_v2(request: TailorResumeV2Request):
     if not resume_customizer.is_available():
         raise HTTPException(status_code=503, detail="AI not available. Set GEMINI_API_KEY.")
 
-    renderer     = _get_renderer()
-    clean_uid    = request.user_id.strip()
-    out_filename = f"tailored_{clean_uid}"
+    renderer  = _get_renderer()
+    clean_uid = request.user_id.strip()
 
     # Ensure user exists, then deduct tokens
     try:
@@ -1355,6 +1365,13 @@ async def tailor_resume_v2(request: TailorResumeV2Request):
     if not ok:
         raise HTTPException(status_code=500, detail=msg)
 
+    # Auto-name from AI-extracted name (prefix "Tailored_" to distinguish)
+    candidate_name = resume_dict.get("name", "")
+    out_filename   = (
+        f"Tailored_{_name_to_filename(candidate_name)}"
+        if candidate_name else f"tailored_{clean_uid}"
+    )
+
     # Save JSON for debugging / inspection
     try:
         import json as _json
@@ -1373,6 +1390,41 @@ async def tailor_resume_v2(request: TailorResumeV2Request):
     if pdf_ok:
         return PDFResponse(success=True, message=pdf_msg, filename=f"{out_filename}.pdf")
     raise HTTPException(status_code=500, detail=pdf_msg)
+
+
+# ── PDF Rename endpoint ────────────────────────────────────────────────────────
+
+class RenamePDFRequest(BaseModel):
+    current_filename: str   # with or without .pdf
+    new_filename: str       # without .pdf extension
+
+
+@app.post("/api/rename-pdf", response_model=PDFResponse)
+async def rename_pdf(request: RenamePDFRequest):
+    """Rename an existing PDF in the output directory."""
+    cur = request.current_filename.removesuffix(".pdf")
+    new = request.new_filename.removesuffix(".pdf")
+
+    # Sanitise new name
+    import re as _re
+    new_safe = _re.sub(r"[^a-zA-Z0-9_\-]", "_", new).strip("_")
+    if not new_safe:
+        raise HTTPException(status_code=400, detail="new_filename is invalid")
+
+    cur_path = settings.output_dir / f"{cur}.pdf"
+    if not cur_path.exists():
+        raise HTTPException(status_code=404, detail=f"PDF not found: {cur}.pdf")
+
+    new_path = settings.output_dir / f"{new_safe}.pdf"
+    try:
+        cur_path.rename(new_path)
+        # Also rename companion .json if it exists
+        cur_json = settings.output_dir / f"{cur}.json"
+        if cur_json.exists():
+            cur_json.rename(settings.output_dir / f"{new_safe}.json")
+        return PDFResponse(success=True, message=f"Renamed to {new_safe}.pdf", filename=f"{new_safe}.pdf")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ── User Session & Token API endpoints (used by Telegram bot) ────────────────

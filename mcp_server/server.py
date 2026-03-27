@@ -108,6 +108,28 @@ async def list_tools() -> list[Tool]:
             }
         ),
         Tool(
+            name="rename_pdf",
+            description=(
+                "Rename an existing PDF resume to a new filename. "
+                "Useful for giving a resume a meaningful name based on the candidate's name. "
+                "e.g. rename 'resume_123.pdf' to 'Anup_Ojha_Resume.pdf'."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "current_filename": {
+                        "type": "string",
+                        "description": "Current PDF filename (with or without .pdf extension)"
+                    },
+                    "new_filename": {
+                        "type": "string",
+                        "description": "New filename without .pdf extension (e.g. 'Anup_Ojha_Resume')"
+                    }
+                },
+                "required": ["current_filename", "new_filename"]
+            }
+        ),
+        Tool(
             name="delete_pdf",
             description="Delete a generated PDF resume by filename.",
             inputSchema={
@@ -240,6 +262,30 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent | ImageConte
                 )
             ]
     
+    elif name == "rename_pdf":
+        import re as _re
+        current_filename = arguments.get("current_filename", "").removesuffix(".pdf")
+        new_filename     = arguments.get("new_filename", "").removesuffix(".pdf")
+
+        new_safe = _re.sub(r"[^a-zA-Z0-9_\-]", "_", new_filename).strip("_")
+        if not new_safe:
+            return [TextContent(type="text", text="❌ Error: new_filename is invalid")]
+
+        cur_path = settings.output_dir / f"{current_filename}.pdf"
+        if not cur_path.exists():
+            return [TextContent(type="text", text=f"❌ PDF not found: {current_filename}.pdf")]
+
+        new_path = settings.output_dir / f"{new_safe}.pdf"
+        try:
+            cur_path.rename(new_path)
+            # Rename companion .json if present
+            cur_json = settings.output_dir / f"{current_filename}.json"
+            if cur_json.exists():
+                cur_json.rename(settings.output_dir / f"{new_safe}.json")
+            return [TextContent(type="text", text=f"✅ Renamed to {new_safe}.pdf\n\nDownload: /api/pdfs/{new_safe}.pdf")]
+        except Exception as e:
+            return [TextContent(type="text", text=f"❌ Error renaming: {str(e)}")]
+
     elif name == "fetch_pdf":
         filename = arguments.get("filename", "")
         
