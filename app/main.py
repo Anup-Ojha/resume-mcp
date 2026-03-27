@@ -142,6 +142,36 @@ async def sitemap():
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
+  <url>
+    <loc>{base}/blogs/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>{base}/blogs/mcp-server-ai-resume-tools.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>{base}/blogs/ats-resume-checklist-2025.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>{base}/blogs/ai-resume-generator-guide-2025.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>{base}/blogs/tailor-resume-to-job-description-ai.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>{base}/blogs/best-resume-format-2025.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
 </urlset>"""
     return Response(content=xml, media_type="application/xml")
 
@@ -158,6 +188,25 @@ Disallow: /redoc
 Sitemap: {base}/sitemap.xml
 """
     return Response(content=content, media_type="text/plain")
+
+
+@app.get("/blogs/")
+async def serve_blogs():
+    """Serve the blog listing page"""
+    from fastapi.responses import RedirectResponse
+    html_file = settings.static_dir / "blogs" / "index.html"
+    if html_file.exists():
+        return FileResponse(html_file)
+    return RedirectResponse("/")
+
+
+@app.get("/blogs/{slug}")
+async def serve_blog_post(slug: str):
+    """Serve individual blog post"""
+    html_file = settings.static_dir / "blogs" / slug
+    if html_file.exists() and html_file.suffix == ".html":
+        return FileResponse(html_file)
+    raise HTTPException(status_code=404, detail="Blog post not found")
 
 
 @app.get("/app")
