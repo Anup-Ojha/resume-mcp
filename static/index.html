@@ -132,6 +132,8 @@
 
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
+    nav a:hover, nav a:focus { text-decoration: none !important; }
+    .logo:hover { text-decoration: none !important; }
     code {
       font-family: 'JetBrains Mono', monospace;
       font-size: .85em;
@@ -904,14 +906,9 @@
 
 <!-- NAV -->
 <nav>
-  <a href="#" class="logo" aria-label="ResumeForge">
-    <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-      <rect width="28" height="28" rx="7" fill="var(--accent)"/>
-      <rect x="7" y="8" width="14" height="2" rx="1" fill="#fff"/>
-      <rect x="7" y="13" width="10" height="2" rx="1" fill="rgba(255,255,255,.7)"/>
-      <rect x="7" y="18" width="7" height="2" rx="1" fill="rgba(255,255,255,.45)"/>
-    </svg>
-    ResumeForge
+  <a href="/" class="logo" aria-label="Resume-MCP">
+    <img src="/static/logo.svg" width="30" height="30" alt="Resume-MCP logo" style="flex-shrink:0"/>
+    Resume-MCP
   </a>
 
   <div class="nav-links" id="navLinks">
