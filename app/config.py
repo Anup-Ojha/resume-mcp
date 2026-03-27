@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
     # Public URL of this API service (used as OAuth redirect_uri)
-    public_api_url: str = "http://localhost:8000"
+    public_api_url: str = "https://resume-mcp.site"
 
     # Server settings
     host: str = "0.0.0.0"
