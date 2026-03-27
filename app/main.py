@@ -1155,18 +1155,26 @@ async def _apply_smart_handler(
     # ── Determine resume source (v2 JSON first, then LaTeX, then uploaded) ────
     effective_resume_text = None
 
+    # Priority 1: saved v2 JSON — convert to readable plain text so Gemini
+    # can extract every field properly (raw JSON string causes half-empty output)
     json_path = settings.output_dir / f"resume_{clean_uid}.json"
     if json_path.exists():
         try:
-            effective_resume_text = json_path.read_text(encoding="utf-8")
-        except Exception:
-            pass
+            import json as _json
+            resume_dict_saved = _json.loads(json_path.read_text(encoding="utf-8"))
+            effective_resume_text = _resume_dict_to_text(resume_dict_saved)
+            logger.info(f"apply_smart: loaded saved JSON for {clean_uid}, converted to {len(effective_resume_text)} chars of text")
+        except Exception as _je:
+            logger.warning(f"apply_smart: failed to parse saved JSON: {_je}")
 
+    # Priority 2: saved LaTeX source
     if not effective_resume_text:
         existing_latex = latex_processor.get_latex_source(f"resume_{clean_uid}")
         if existing_latex:
             effective_resume_text = existing_latex
+            logger.info(f"apply_smart: using saved LaTeX for {clean_uid}")
 
+    # Priority 3: uploaded file
     if not effective_resume_text and resume_file:
         suffix = Path(resume_file.filename or "resume.pdf").suffix
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
@@ -1180,13 +1188,14 @@ async def _apply_smart_handler(
         finally:
             tmp_path.unlink(missing_ok=True)
 
-    if not effective_resume_text and resume_text:
-        effective_resume_text = resume_text
+    # Priority 4: pasted text from request body
+    if not effective_resume_text and resume_text and resume_text.strip():
+        effective_resume_text = resume_text.strip()
 
     if not effective_resume_text:
         raise HTTPException(
             status_code=400,
-            detail="No resume source. Provide resume_file or resume_text, or create a resume first with /create."
+            detail="No resume found. Please create a resume first using the Create tab, or paste your resume text."
         )
 
     # ── v2 pipeline: AI → JSON → Jinja2 → LaTeX → PDF ────────────────────────
@@ -1363,6 +1372,146 @@ def _name_to_filename(name: str) -> str:
     safe = re.sub(r"[^a-zA-Z0-9\s]", "", name or "").strip()
     safe = re.sub(r"\s+", "_", safe)
     return f"{safe}_Resume" if safe else "Resume"
+
+
+def _resume_dict_to_text(d: dict) -> str:
+    """
+    Convert a structured resume dict (saved from v2 pipeline) into clean
+    human-readable plain text so Gemini can tailor it properly.
+
+    Passing the raw JSON to generate_tailored_json confuses the model —
+    it can't reliably extract fields from JSON syntax, leading to half-empty output.
+    This converts it to the same style of text the user would type manually.
+    """
+    lines: list[str] = []
+
+    # Header
+    name = (d.get("name") or "").strip()
+    if name:
+        lines.append(name.upper())
+    contact = []
+    for k in ("email", "phone"):
+        v = d.get(k)
+        if v:
+            contact.append(str(v).strip())
+    for k in ("linkedin_url", "github_url", "portfolio_url"):
+        v = d.get(k)
+        if v and str(v).strip() not in ("", "null", "None"):
+            contact.append(str(v).strip())
+    if contact:
+        lines.append(" | ".join(contact))
+    lines.append("")
+
+    # Summary / objective
+    summary = d.get("summary") or d.get("objective") or ""
+    if summary and str(summary).strip():
+        lines.append("SUMMARY")
+        lines.append(str(summary).strip())
+        lines.append("")
+
+    # Experience
+    experience = d.get("experience") or []
+    if experience:
+        lines.append("EXPERIENCE")
+        for exp in experience:
+            title   = exp.get("title", "")
+            company = exp.get("company", "")
+            start   = exp.get("start", "")
+            end     = exp.get("end", "Present")
+            city    = exp.get("city", "")
+            country = exp.get("country", "")
+            loc = ", ".join(filter(None, [city, country]))
+            header_parts = [f"{title} at {company}" if title and company else (title or company)]
+            if loc:
+                header_parts.append(loc)
+            if start:
+                header_parts.append(f"{start} – {end}")
+            lines.append(" | ".join(header_parts))
+            for bullet in (exp.get("bullets") or []):
+                # strip markdown bold markers for plain text
+                b = str(bullet).replace("**", "")
+                lines.append(f"- {b}")
+            lines.append("")
+
+    # Projects
+    projects = d.get("projects") or []
+    if projects:
+        lines.append("PROJECTS")
+        for proj in projects:
+            pname = proj.get("name", "")
+            tech  = proj.get("tech_stack") or []
+            tech_str = ", ".join(tech) if isinstance(tech, list) else str(tech)
+            lines.append(f"{pname}" + (f" | {tech_str}" if tech_str else ""))
+            for bullet in (proj.get("bullets") or []):
+                b = str(bullet).replace("**", "")
+                lines.append(f"- {b}")
+            lines.append("")
+
+    # Education
+    education = d.get("education") or []
+    if education:
+        lines.append("EDUCATION")
+        for edu in education:
+            degree     = edu.get("degree", "")
+            university = edu.get("university", "")
+            start      = edu.get("start", "")
+            end        = edu.get("end", "")
+            gpa        = edu.get("gpa", "")
+            city       = edu.get("city", "")
+            parts = [f"{degree} — {university}" if degree and university else (degree or university)]
+            if city:
+                parts.append(city)
+            if start or end:
+                parts.append(f"{start} – {end}".strip(" –"))
+            lines.append(" | ".join(parts))
+            if gpa and str(gpa).strip():
+                lines.append(f"  GPA: {gpa}")
+            lines.append("")
+
+    # Skills
+    skills = d.get("skills") or {}
+    if skills and isinstance(skills, dict):
+        lines.append("SKILLS")
+        label_map = {
+            "languages":    "Languages",
+            "frameworks":   "Frameworks",
+            "databases":    "Databases",
+            "cloud_devops": "Cloud/DevOps",
+            "tools":        "Tools",
+        }
+        for key, label in label_map.items():
+            items = skills.get(key) or []
+            if items:
+                lines.append(f"{label}: {', '.join(items)}")
+        lines.append("")
+
+    # Certifications
+    certs = d.get("certifications") or []
+    if certs:
+        lines.append("CERTIFICATIONS")
+        for c in certs:
+            cname   = c.get("name", "")
+            issuer  = c.get("issuer", "")
+            desc    = c.get("description", "")
+            line = cname
+            if issuer:
+                line += f" — {issuer}"
+            if desc:
+                line += f" ({desc})"
+            lines.append(f"- {line}")
+        lines.append("")
+
+    # Awards
+    awards = d.get("awards") or []
+    if awards:
+        lines.append("AWARDS")
+        for a in awards:
+            aname = a.get("name", "")
+            adesc = a.get("description", "")
+            lines.append(f"- {aname}" + (f": {adesc}" if adesc else ""))
+        lines.append("")
+
+    return "\n".join(lines).strip()
 
 
 class CreateResumeV2Request(BaseModel):
