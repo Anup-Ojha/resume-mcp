@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Privacy Policy — Resume-MCP</title>
+  <meta name="description" content="Resume-MCP Privacy Policy: how we collect, use, and protect your data."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#fff;--bg2:#f5f6f9;--bg3:#eceff4;
+    --border:#e1e5ee;--bdr2:#c8cedb;
+    --t1:#0d1526;--t2:#3c4a60;--t3:#7688a0;--t4:#a0aec0;
+    --acc:#1a6ef8;--acc-d:#0f55d0;--acc-bg:#edf3ff;--acc-b:rgba(26,110,248,.15);
+    --green:#15803d;--green-bg:#f0fdf4;
+    --r8:8px;--r12:12px;--r16:16px;
+    --sh-sm:0 2px 8px rgba(0,0,0,.07),0 1px 3px rgba(0,0,0,.04);
+  }
+  [data-theme="dark"]{
+    --bg:#0d0e13;--bg2:#12141c;--bg3:#181b25;
+    --border:#232738;--bdr2:#2d3347;
+    --t1:#f0f3fa;--t2:#8994aa;--t3:#555f75;--t4:#3a4155;
+    --acc:#a78bfa;--acc-d:#c4b5fd;--acc-bg:#1e1730;--acc-b:rgba(167,139,250,.2);
+    --green:#4ade80;--green-bg:#052010;
+    --sh-sm:0 2px 8px rgba(0,0,0,.5),0 1px 3px rgba(0,0,0,.3);
+  }
+  html{font-size:16px;scroll-behavior:smooth}
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t1);line-height:1.7;-webkit-font-smoothing:antialiased}
+  a{color:var(--acc);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* ── NAV ── */
+  nav{
+    height:58px;background:var(--bg);border-bottom:1px solid var(--border);
+    display:flex;align-items:center;padding:0 24px;gap:12px;
+    position:sticky;top:0;z-index:100;
+  }
+  .nav-logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:.9375rem;color:var(--t1);text-decoration:none;flex-shrink:0}
+  .nav-logo:hover{text-decoration:none;opacity:.85}
+  .nav-spacer{flex:1}
+  .theme-btn{
+    width:32px;height:32px;border-radius:8px;background:none;border:1px solid var(--border);
+    cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--t3);transition:all .15s;
+  }
+  .theme-btn:hover{background:var(--bg3);color:var(--t1)}
+  .i-moon{display:none}
+  [data-theme="dark"] .i-sun{display:none}
+  [data-theme="dark"] .i-moon{display:block}
+
+  /* ── LAYOUT ── */
+  .page{max-width:760px;margin:0 auto;padding:52px 24px 80px}
+  .badge{
+    display:inline-block;background:var(--acc-bg);color:var(--acc);
+    border:1px solid var(--acc-b);border-radius:100px;
+    font-size:.75rem;font-weight:700;padding:3px 12px;letter-spacing:.04em;
+    margin-bottom:18px;
+  }
+  h1{font-size:2rem;font-weight:700;letter-spacing:-.025em;color:var(--t1);margin-bottom:10px;line-height:1.2}
+  .meta{font-size:.825rem;color:var(--t3);margin-bottom:40px;padding-bottom:28px;border-bottom:1px solid var(--border)}
+  .meta span{margin-right:18px}
+
+  /* ── TOC ── */
+  .toc{
+    background:var(--bg2);border:1px solid var(--border);border-radius:var(--r12);
+    padding:20px 24px;margin-bottom:44px;
+  }
+  .toc h2{font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t4);margin-bottom:12px}
+  .toc ol{padding-left:18px;display:flex;flex-direction:column;gap:5px}
+  .toc li{font-size:.875rem;color:var(--t2)}
+  .toc a{color:var(--t2)}
+  .toc a:hover{color:var(--acc)}
+
+  /* ── SECTIONS ── */
+  .section{margin-bottom:44px;scroll-margin-top:80px}
+  .section h2{
+    font-size:1.15rem;font-weight:700;color:var(--t1);
+    margin-bottom:14px;padding-bottom:10px;
+    border-bottom:1px solid var(--border);
+  }
+  .section h3{font-size:.9375rem;font-weight:600;color:var(--t1);margin:18px 0 8px}
+  .section p{font-size:.9rem;color:var(--t2);margin-bottom:12px}
+  .section ul,.section ol{padding-left:20px;margin-bottom:12px;display:flex;flex-direction:column;gap:5px}
+  .section li{font-size:.9rem;color:var(--t2)}
+
+  /* ── HIGHLIGHT BOXES ── */
+  .info-box{
+    background:var(--acc-bg);border:1px solid var(--acc-b);
+    border-radius:var(--r8);padding:14px 16px;
+    font-size:.875rem;color:var(--t2);margin-bottom:16px;line-height:1.6;
+  }
+  .info-box strong{color:var(--acc)}
+  .ok-box{
+    background:var(--green-bg);border:1px solid rgba(21,128,61,.2);
+    border-radius:var(--r8);padding:14px 16px;
+    font-size:.875rem;color:var(--green);margin-bottom:16px;
+  }
+
+  /* ── DATA TABLE ── */
+  .data-table{width:100%;border-collapse:collapse;font-size:.85rem;margin-bottom:16px;border-radius:var(--r8);overflow:hidden;border:1px solid var(--border)}
+  .data-table th{background:var(--bg3);padding:10px 14px;text-align:left;font-weight:600;color:var(--t2);font-size:.78rem;letter-spacing:.04em;text-transform:uppercase}
+  .data-table td{padding:10px 14px;color:var(--t2);border-top:1px solid var(--border);vertical-align:top}
+  .data-table tr:hover td{background:var(--bg2)}
+
+  /* ── FOOTER ── */
+  footer{background:var(--bg2);border-top:1px solid var(--border);padding:28px 24px;text-align:center}
+  .foot-in{max-width:760px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:10px}
+  .foot-links{display:flex;gap:20px;flex-wrap:wrap;justify-content:center}
+  .foot-links a{font-size:.825rem;color:var(--t3)}
+  .foot-links a:hover{color:var(--acc)}
+  .foot-copy{font-size:.75rem;color:var(--t4)}
+
+  @media(max-width:600px){
+    h1{font-size:1.5rem}
+    .page{padding:32px 16px 60px}
+  }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">
+    <img src="/static/logo.png" alt="Resume-MCP" style="width:28px;height:28px;border-radius:6px;object-fit:cover;display:block" onerror="this.src='/static/logo.svg';this.style.borderRadius='0'"/>
+    Resume-MCP
+  </a>
+  <div class="nav-spacer"></div>
+  <button class="theme-btn" id="themeBtn" title="Toggle theme">
+    <svg class="i-sun" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg>
+    <svg class="i-moon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  </button>
+  <a href="/app" style="margin-left:8px;font-size:.8125rem;font-weight:600;background:var(--acc);color:#fff;padding:7px 14px;border-radius:8px;text-decoration:none">Try Free →</a>
+</nav>
+
+<main class="page">
+
+  <div class="badge">Legal</div>
+  <h1>Privacy Policy</h1>
+  <div class="meta">
+    <span>Effective date: <strong>28 March 2026</strong></span>
+    <span>Last updated: <strong id="pp-updated">28 March 2026</strong></span>
+  </div>
+
+  <div class="info-box">
+    <strong>Short version:</strong> We collect only what is needed to generate your resume and send emails on your behalf. We never sell your data. You can delete everything at any time.
+  </div>
+
+  <!-- TOC -->
+  <div class="toc">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#who-we-are">Who We Are</a></li>
+      <li><a href="#data-we-collect">Data We Collect</a></li>
+      <li><a href="#how-we-use">How We Use Your Data</a></li>
+      <li><a href="#data-sharing">Data Sharing &amp; Third Parties</a></li>
+      <li><a href="#data-retention">Data Retention</a></li>
+      <li><a href="#your-rights">Your Rights</a></li>
+      <li><a href="#security">Security</a></li>
+      <li><a href="#cookies">Cookies &amp; Local Storage</a></li>
+      <li><a href="#children">Children's Privacy</a></li>
+      <li><a href="#changes">Changes to This Policy</a></li>
+      <li><a href="#contact">Contact Us</a></li>
+    </ol>
+  </div>
+
+  <!-- 1 -->
+  <div class="section" id="who-we-are">
+    <h2>1. Who We Are</h2>
+    <p>Resume-MCP ("<strong>we</strong>", "<strong>our</strong>", "<strong>the service</strong>") is an AI-powered resume creation and job application platform available at <a href="https://resume-mcp.site">resume-mcp.site</a>. The service lets you create ATS-optimised resumes using Gemini AI, tailor them to specific job descriptions, and optionally send job applications via your Gmail account.</p>
+    <p>For privacy enquiries, contact us at: <a href="mailto:privacy@resume-mcp.site">privacy@resume-mcp.site</a></p>
+  </div>
+
+  <!-- 2 -->
+  <div class="section" id="data-we-collect">
+    <h2>2. Data We Collect</h2>
+
+    <h3>2.1 Account &amp; Identity Data</h3>
+    <p>When you sign in with Google or connect via Telegram, we collect:</p>
+    <table class="data-table">
+      <thead><tr><th>Data point</th><th>Source</th><th>Why we collect it</th></tr></thead>
+      <tbody>
+        <tr><td>Full name</td><td>Google OAuth</td><td>Display in dashboard; personalise generated resumes</td></tr>
+        <tr><td>Email address</td><td>Google OAuth</td><td>Send job applications from your account via Gmail</td></tr>
+        <tr><td>Profile picture URL</td><td>Google OAuth</td><td>Display in dashboard UI</td></tr>
+        <tr><td>Google OAuth tokens (access + refresh)</td><td>Google OAuth</td><td>Send emails on your behalf via Gmail API</td></tr>
+        <tr><td>Telegram user ID</td><td>Telegram Bot</td><td>Link bot sessions to your account; identify you across requests</td></tr>
+      </tbody>
+    </table>
+
+    <h3>2.2 Resume Content</h3>
+    <p>We process the resume and career information you provide (work history, education, skills, etc.) solely to generate your PDF resume. The most recently generated resume JSON is saved so you can re-tailor it later without re-entering your details.</p>
+
+    <h3>2.3 Job Descriptions &amp; Application Data</h3>
+    <p>When you use the "Apply via Email" or Tailor features, we temporarily process the job description text you paste. This is used only to generate a tailored resume or cover email and is not stored beyond the request.</p>
+
+    <h3>2.4 Usage &amp; Token Data</h3>
+    <p>We store a token balance (count of operations remaining) linked to your account. We log the type and timestamp of each operation (create / tailor / apply) for billing and abuse-prevention purposes.</p>
+
+    <h3>2.5 Technical Data</h3>
+    <p>Standard server logs record IP address, user agent, and HTTP request metadata for security monitoring. These logs are retained for up to 30 days.</p>
+  </div>
+
+  <!-- 3 -->
+  <div class="section" id="how-we-use">
+    <h2>3. How We Use Your Data</h2>
+    <ul>
+      <li><strong>Resume generation:</strong> Your career details are sent to Google Gemini AI to produce structured resume JSON, which is then rendered into a PDF via LaTeX.</li>
+      <li><strong>Email sending:</strong> Your Gmail OAuth token is used exclusively to send job-application emails you explicitly trigger. We never send emails without your instruction.</li>
+      <li><strong>Account management:</strong> Name and email are shown in the dashboard; token balance is tracked to limit free-tier usage.</li>
+      <li><strong>Security &amp; abuse prevention:</strong> We monitor request rates and may block accounts that abuse the service.</li>
+      <li><strong>Analytics:</strong> Aggregate, anonymised usage statistics (e.g. total resumes created) are used to improve the product. Individual behaviour is not sold or profiled.</li>
+    </ul>
+    <div class="ok-box">✓ We do <strong>not</strong> use your resume content or emails to train AI models. We do <strong>not</strong> sell, rent, or trade your personal data.</div>
+  </div>
+
+  <!-- 4 -->
+  <div class="section" id="data-sharing">
+    <h2>4. Data Sharing &amp; Third Parties</h2>
+    <p>We share your data only with the following sub-processors, each bound by their own privacy policies:</p>
+    <table class="data-table">
+      <thead><tr><th>Provider</th><th>Purpose</th><th>Data shared</th></tr></thead>
+      <tbody>
+        <tr><td><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google LLC</a></td><td>OAuth 2.0 sign-in, Gmail sending, Gemini AI resume generation</td><td>Name, email, OAuth tokens; resume text sent to Gemini API</td></tr>
+        <tr><td><a href="https://supabase.com/privacy" target="_blank" rel="noopener">Supabase Inc.</a></td><td>Database (user records, token balances, OAuth tokens)</td><td>Account data, hashed/encrypted tokens</td></tr>
+        <tr><td><a href="https://telegram.org/privacy" target="_blank" rel="noopener">Telegram Messenger Inc.</a></td><td>Bot interface</td><td>Telegram user ID; messages you send to the bot</td></tr>
+      </tbody>
+    </table>
+    <p>We do not share data with advertisers, data brokers, or any other third parties.</p>
+    <p>We may disclose information if required by law, court order, or to protect the safety of users or the public.</p>
+  </div>
+
+  <!-- 5 -->
+  <div class="section" id="data-retention">
+    <h2>5. Data Retention</h2>
+    <ul>
+      <li><strong>Account data:</strong> Retained while your account is active. Deleted within 30 days of an account deletion request.</li>
+      <li><strong>Generated PDFs:</strong> Stored on the server until you delete them (via dashboard or API). You have full control.</li>
+      <li><strong>OAuth tokens:</strong> Retained until you disconnect Gmail (sign out) or request deletion. Tokens are revoked with Google on deletion.</li>
+      <li><strong>Server logs:</strong> Automatically purged after 30 days.</li>
+      <li><strong>Resume JSON:</strong> The most recent resume JSON per user is retained to enable re-tailoring. Deleted when you delete your account.</li>
+    </ul>
+  </div>
+
+  <!-- 6 -->
+  <div class="section" id="your-rights">
+    <h2>6. Your Rights</h2>
+    <p>Depending on your location, you may have the following rights under GDPR, CCPA, or similar laws:</p>
+    <ul>
+      <li><strong>Access:</strong> Request a copy of the personal data we hold about you.</li>
+      <li><strong>Correction:</strong> Ask us to correct inaccurate data.</li>
+      <li><strong>Deletion ("right to be forgotten"):</strong> Request deletion of all your data. Use the Sign Out button which revokes your Google OAuth tokens, or email us.</li>
+      <li><strong>Portability:</strong> Request your resume JSON in machine-readable format.</li>
+      <li><strong>Objection / Restriction:</strong> Object to or restrict certain processing activities.</li>
+      <li><strong>Withdraw consent:</strong> You can disconnect Gmail at any time from the dashboard. This stops us from sending emails on your behalf.</li>
+    </ul>
+    <p>To exercise any right, email <a href="mailto:privacy@resume-mcp.site">privacy@resume-mcp.site</a>. We will respond within 30 days.</p>
+  </div>
+
+  <!-- 7 -->
+  <div class="section" id="security">
+    <h2>7. Security</h2>
+    <p>We implement industry-standard security measures:</p>
+    <ul>
+      <li>All data in transit is encrypted with TLS 1.2+</li>
+      <li>OAuth tokens are stored encrypted in the database</li>
+      <li>The server is hosted in a private Docker environment with restricted network access</li>
+      <li>We do not log or store raw resume text after a PDF is generated</li>
+    </ul>
+    <p>No method of transmission over the internet is 100% secure. If you become aware of a security vulnerability, please contact <a href="mailto:privacy@resume-mcp.site">privacy@resume-mcp.site</a> immediately.</p>
+  </div>
+
+  <!-- 8 -->
+  <div class="section" id="cookies">
+    <h2>8. Cookies &amp; Local Storage</h2>
+    <p>Resume-MCP does not use advertising or tracking cookies. We use:</p>
+    <ul>
+      <li><strong>localStorage</strong> — stores your session (user ID, name, token count, theme preference) in your browser for up to 24 hours. No server-side cookie is set.</li>
+      <li><strong>Google Analytics 4</strong> — collects anonymised page-view statistics (pages visited, session duration). No personal identifiers are shared. You can opt out via <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener">Google's opt-out tool</a>.</li>
+    </ul>
+  </div>
+
+  <!-- 9 -->
+  <div class="section" id="children">
+    <h2>9. Children's Privacy</h2>
+    <p>Resume-MCP is intended for users aged 16 and above (or 13+ in the United States). We do not knowingly collect personal data from children. If you believe a child has provided us with their data, please contact us and we will delete it promptly.</p>
+  </div>
+
+  <!-- 10 -->
+  <div class="section" id="changes">
+    <h2>10. Changes to This Policy</h2>
+    <p>We may update this Privacy Policy from time to time. When we do, we will update the "Last updated" date at the top of this page and, for material changes, notify users via the dashboard or email.</p>
+    <p>Continued use of the service after changes constitutes acceptance of the updated policy.</p>
+  </div>
+
+  <!-- 11 -->
+  <div class="section" id="contact">
+    <h2>11. Contact Us</h2>
+    <p>If you have questions about this Privacy Policy or your data, please contact us:</p>
+    <div class="info-box">
+      <strong>Email:</strong> <a href="mailto:privacy@resume-mcp.site">privacy@resume-mcp.site</a><br>
+      <strong>Website:</strong> <a href="https://resume-mcp.site">resume-mcp.site</a><br>
+      <strong>Response time:</strong> We aim to respond within 5 business days.
+    </div>
+    <p style="font-size:.85rem;color:var(--t3)">If you are located in the European Economic Area and believe your data protection rights have been violated, you have the right to lodge a complaint with your local supervisory authority.</p>
+  </div>
+
+</main>
+
+<footer>
+  <div class="foot-in">
+    <div class="foot-links">
+      <a href="/">Home</a>
+      <a href="/features">Features</a>
+      <a href="/mcp">MCP</a>
+      <a href="/blogs/">Blog</a>
+      <a href="/privacy">Privacy Policy</a>
+      <a href="/app">Dashboard</a>
+    </div>
+    <div class="foot-copy">&copy; 2026 Resume-MCP. All rights reserved.</div>
+  </div>
+</footer>
+
+<script>
+  // Theme
+  const html = document.documentElement;
+  const saved = localStorage.getItem('rf-theme');
+  if (saved) html.setAttribute('data-theme', saved);
+  document.getElementById('themeBtn').addEventListener('click', () => {
+    const t = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', t);
+    localStorage.setItem('rf-theme', t);
+  });
+
+  // Last updated via build-info
+  fetch('/api/build-info').then(r=>r.json()).then(d=>{
+    const iso = d.deploy_time || d.server_started;
+    if (!iso) return;
+    const dt = new Date(iso);
+    const el = document.getElementById('pp-updated');
+    if (el) el.textContent = dt.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  }).catch(()=>{});
+</script>
+</body>
+</html>

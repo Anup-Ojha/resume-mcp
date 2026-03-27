@@ -277,6 +277,16 @@ async def serve_mcp_page():
     return RedirectResponse("/")
 
 
+@app.get("/privacy")
+async def serve_privacy():
+    """Serve the Privacy Policy page"""
+    html_file = settings.static_dir / "privacy.html"
+    if html_file.exists():
+        return FileResponse(html_file)
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("/")
+
+
 @app.post("/api/generate", response_model=PDFResponse)
 async def generate_pdf(request: GeneratePDFRequest):
     """

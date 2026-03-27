@@ -157,6 +157,28 @@
   .btn-google:disabled{opacity:.6;cursor:not-allowed;transform:none}
   .si-note{font-size:.775rem;color:var(--t3);margin-top:14px;line-height:1.5}
 
+  /* T&C consent */
+  .tc-row{
+    display:flex;align-items:flex-start;gap:10px;
+    background:var(--bg2);border:1px solid var(--border);
+    border-radius:var(--r8);padding:12px 14px;
+    margin-bottom:16px;text-align:left;cursor:pointer;
+    transition:border-color .15s;
+  }
+  .tc-row:hover{border-color:var(--bdr2)}
+  .tc-row.checked{border-color:var(--acc);background:var(--acc-bg)}
+  .tc-checkbox{
+    width:16px;height:16px;min-width:16px;border-radius:4px;
+    border:2px solid var(--bdr2);background:var(--bg);
+    display:flex;align-items:center;justify-content:center;
+    margin-top:1px;transition:all .15s;flex-shrink:0;
+  }
+  .tc-row.checked .tc-checkbox{background:var(--acc);border-color:var(--acc)}
+  .tc-check-icon{display:none}
+  .tc-row.checked .tc-check-icon{display:block}
+  .tc-text{font-size:.8rem;color:var(--t2);line-height:1.5}
+  .tc-text a{color:var(--acc);font-weight:500}
+
   /* ── App shell ──────────────────────────────────────────────────── */
   #app{display:none;min-height:100vh;flex-direction:column}
 
@@ -516,7 +538,17 @@
 
     <div class="si-error" id="si-error"></div>
 
-    <button class="btn-google" id="signin-btn" onclick="startSignIn()">
+    <!-- Terms & Conditions consent -->
+    <div class="tc-row" id="tc-row" onclick="toggleConsent()">
+      <div class="tc-checkbox" id="tc-box">
+        <svg class="tc-check-icon" width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 6 5 9 10 3"/></svg>
+      </div>
+      <div class="tc-text">
+        I agree to the <a href="/privacy" target="_blank" rel="noopener" onclick="event.stopPropagation()">Privacy Policy</a> and confirm I am 16 years of age or older. I understand Resume-MCP will access my Google account to send emails on my behalf when I use the Apply feature.
+      </div>
+    </div>
+
+    <button class="btn-google" id="signin-btn" onclick="startSignIn()" disabled style="opacity:.5;cursor:not-allowed">
       <svg width="18" height="18" viewBox="0 0 48 48">
         <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 2.9l5.7-5.7C34.5 6.5 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z"/>
         <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.5 15.8 18.9 12 24 12c3.1 0 5.8 1.1 7.9 2.9l5.7-5.7C34.5 6.5 29.6 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
@@ -526,7 +558,7 @@
       Continue with Google
     </button>
     <p class="si-note">5 free tokens on first sign-in &middot; No credit card required</p>
-    <p class="si-note"><a href="/">← Back to home</a></p>
+    <p class="si-note"><a href="/">← Back to home</a> &middot; <a href="/privacy" target="_blank">Privacy Policy</a></p>
   </div>
 </div>
 
@@ -959,6 +991,34 @@ function refreshBalPanel(d) {
     catch { txt('bal-reset', d.reset_at); }
   }
 }
+
+// ── T&C consent ─────────────────────────────────────────────────────────
+let _tcAccepted = false;
+function toggleConsent() {
+  _tcAccepted = !_tcAccepted;
+  const row = $('tc-row');
+  const btn = $('signin-btn');
+  if (row) row.classList.toggle('checked', _tcAccepted);
+  if (btn) {
+    btn.disabled = !_tcAccepted;
+    btn.style.opacity = _tcAccepted ? '1' : '.5';
+    btn.style.cursor  = _tcAccepted ? 'pointer' : 'not-allowed';
+  }
+  if (_tcAccepted) localStorage.setItem('rfc_tc', '1');
+}
+// Auto-check if already accepted before
+(function() {
+  if (localStorage.getItem('rfc_tc') === '1') {
+    _tcAccepted = true;
+    // Apply state after DOM ready
+    window.addEventListener('DOMContentLoaded', () => {
+      const row = document.getElementById('tc-row');
+      const btn = document.getElementById('signin-btn');
+      if (row) row.classList.add('checked');
+      if (btn) { btn.disabled = false; btn.style.opacity='1'; btn.style.cursor='pointer'; }
+    }, {once:true});
+  }
+})();
 
 // ── Sign in / out ────────────────────────────────────────────────────────
 async function startSignIn() {
