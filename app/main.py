@@ -163,6 +163,16 @@ async def root():
     return {"message": "LaTeX Resume Generator API", "docs": "/docs"}
 
 
+@app.get("/google91cf4eefa380fb68.html", include_in_schema=False)
+async def google_site_verification():
+    """Google Search Console ownership verification file."""
+    f = settings.static_dir / "google91cf4eefa380fb68.html"
+    if f.exists():
+        return FileResponse(f, media_type="text/html")
+    from fastapi.responses import PlainTextResponse
+    return PlainTextResponse("google-site-verification: google91cf4eefa380fb68.html")
+
+
 @app.get("/sitemap.xml", response_class=Response)
 async def sitemap():
     """Sitemap for Google Search Console indexing"""
