@@ -60,7 +60,7 @@
 \section{Education}
 \begin{itemize}
 (* for edu in data.education *)
-    \item \textbf{(( edu.university | e ))} \hfill (( edu.start | e )) -- (( edu.end | e )) \\
+    \item \textbf{(( edu.university | e ))}(* if edu.start or edu.end *) \hfill (( (edu.start or '') | e ))(* if edu.start and edu.end *) -- (* endif *)(( (edu.end or '') | e ))(* endif *) \\
     (( edu.degree | e ))(* if edu.gpa *) (GPA: (( edu.gpa | e )))(* endif *)(* if edu.city *) --- (( edu.city | e ))(* endif *)
 (* endfor *)
 \end{itemize}
@@ -72,7 +72,7 @@
 \begin{itemize}
 (* for exp in data.experience *)
 \needspace{5\baselineskip}
-\item \textbf{(( exp.title | e )) --- (( exp.company | e ))} \hfill (( exp.start | e )) -- (( exp.end | e )) \\
+\item \textbf{(( exp.title | e )) --- (( exp.company | e ))}(* if exp.start or exp.end *) \hfill (( (exp.start or '') | e ))(* if exp.start and exp.end *) -- (* endif *)(( (exp.end or '') | e ))(* endif *) \\
 \nopagebreak[4]
 (* if exp.city and exp.country *)(( exp.city | e )), (( exp.country | e ))(* elif exp.city *)(( exp.city | e ))(* elif exp.country *)(( exp.country | e ))(* endif *)
 \nopagebreak[4]

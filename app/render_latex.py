@@ -27,8 +27,8 @@ class EducationItem(BaseModel):
     degree: str
     gpa: Optional[str] = None
     city: Optional[str] = None   # Gemini may omit city for some entries
-    start: str   # e.g. "Aug 2023"
-    end: str     # e.g. "Jul 2025"  or  "Present"
+    start: Optional[str] = None  # e.g. "Aug 2023" — omitted for older/undated degrees
+    end: Optional[str] = None    # e.g. "Jul 2025"  or  "Present"
 
 
 class ExperienceItem(BaseModel):
@@ -36,8 +36,8 @@ class ExperienceItem(BaseModel):
     company: str
     city: Optional[str] = None     # Gemini may omit city / country
     country: Optional[str] = None
-    start: str
-    end: str
+    start: Optional[str] = None
+    end: Optional[str] = None
     bullets: List[str]   # plain text; wrap keywords in **text** for bold
 
 
