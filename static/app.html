@@ -418,6 +418,45 @@
     padding:2px 9px;border-radius:100px;
   }
 
+  /* ── Gmail banner ───────────────────────────────────────────────── */
+  .gmail-banner{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:12px;flex-wrap:wrap;
+    border-radius:var(--r8);padding:11px 15px;
+    font-size:.85rem;margin-bottom:20px;
+    border:1px solid;
+  }
+  .gmail-banner.ok{background:var(--green-bg);border-color:var(--green-b);color:var(--green)}
+  .gmail-banner.warn{background:var(--amber-bg);border-color:rgba(180,83,9,.2);color:var(--amber)}
+  .gmail-banner-left{display:flex;align-items:center;gap:8px}
+  .gmail-btn{
+    font-size:.78rem;font-weight:600;
+    background:var(--acc);color:#fff;
+    border:none;border-radius:var(--r6);
+    padding:5px 12px;cursor:pointer;white-space:nowrap;
+    transition:background .15s;flex-shrink:0;
+  }
+  .gmail-btn:hover{background:var(--acc-d)}
+
+  /* ── Source toggle ───────────────────────────────────────────────── */
+  .toggle-group{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--r8);overflow:hidden;width:fit-content}
+  .toggle-btn{
+    padding:7px 16px;font-size:.8125rem;font-weight:500;
+    background:none;border:none;cursor:pointer;color:var(--t3);
+    transition:all .15s;
+  }
+  .toggle-btn:first-child{border-right:1px solid var(--border)}
+  .toggle-btn.active{background:var(--acc-bg);color:var(--acc-text);font-weight:600}
+  .toggle-btn:hover:not(.active){background:var(--bg3);color:var(--t1)}
+
+  /* ── Extract row ─────────────────────────────────────────────────── */
+  .extract-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+  .extract-row > div{flex:1;min-width:180px}
+
+  /* ── 2-col grid ──────────────────────────────────────────────────── */
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:540px){.grid-2{grid-template-columns:1fr}}
+
   /* ── RESPONSIVE ─────────────────────────────────────────────────── */
   @media(max-width:800px){
     .sidebar{display:none}
@@ -548,6 +587,13 @@
         <span class="sb-cost">1t</span>
       </button>
 
+      <div class="sb-label" style="margin-top:8px">Apply</div>
+      <button class="sb-btn" id="sb-apply" onclick="switchTab('apply',this)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        Apply via Email
+        <span class="sb-cost">3t</span>
+      </button>
+
       <div class="sb-label" style="margin-top:8px">Files</div>
       <button class="sb-btn" id="sb-pdfs" onclick="switchTab('pdfs',this)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -590,6 +636,9 @@
         </button>
         <button class="mob-tab" onclick="switchTab('update',this)">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>Update
+        </button>
+        <button class="mob-tab" onclick="switchTab('apply',this)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Apply
         </button>
         <button class="mob-tab" onclick="switchTab('pdfs',this)">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>PDFs
@@ -676,6 +725,75 @@ Python, FastAPI, Docker, Kubernetes, PostgreSQL, React, AWS"></textarea>
         </button>
         <div class="spin-row" id="u-spin"><div class="ld-spin"></div><span>Updating your resume… 15–25 s</span></div>
         <div class="res-box" id="u-res"></div>
+      </div>
+
+      <!-- ── APPLY VIA EMAIL ───────────────────────────────────────── -->
+      <div class="tab-panel" id="panel-apply">
+
+        <!-- Gmail connection banner -->
+        <div id="apply-gmail-banner"></div>
+
+        <div class="sec-note">
+          AI tailors your saved resume to the job description, writes a professional cover email, and sends it directly from your Gmail account.
+          <strong>Costs 3 tokens.</strong>
+        </div>
+
+        <!-- Job Description -->
+        <div class="field">
+          <label class="f-label" for="a-jd">Job description <span class="f-req">*</span></label>
+          <textarea class="f-textarea" id="a-jd" rows="9" placeholder="Paste the full job description — title, company, responsibilities, requirements, tech stack…&#10;&#10;We will automatically extract the recruiter email from the JD."></textarea>
+          <div class="f-hint">Include as much of the JD as possible for best ATS matching.</div>
+        </div>
+
+        <!-- Recipient email + extract button -->
+        <div class="extract-row field">
+          <div>
+            <label class="f-label" for="a-email">Recipient email <span class="f-req">*</span></label>
+            <input class="f-input" id="a-email" type="email" placeholder="recruiter@company.com">
+          </div>
+          <button class="btn-ghost" onclick="extractFromJD()" style="flex-shrink:0;margin-bottom:0;height:38px">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Extract from JD
+          </button>
+        </div>
+
+        <!-- Job title + Company -->
+        <div class="grid-2 field">
+          <div>
+            <label class="f-label" for="a-title">Job title <span>(optional)</span></label>
+            <input class="f-input" id="a-title" placeholder="e.g. Senior Software Engineer">
+          </div>
+          <div>
+            <label class="f-label" for="a-company">Company <span>(optional)</span></label>
+            <input class="f-input" id="a-company" placeholder="e.g. Google">
+          </div>
+        </div>
+
+        <!-- Resume source toggle -->
+        <div class="field">
+          <label class="f-label">Resume source</label>
+          <div class="toggle-group">
+            <button class="toggle-btn active" id="rs-saved" onclick="setResumeSource('saved')">Use my saved resume</button>
+            <button class="toggle-btn" id="rs-paste" onclick="setResumeSource('paste')">Paste resume text</button>
+          </div>
+          <div class="f-hint" id="a-source-hint">Your most recently created or tailored resume will be used.</div>
+        </div>
+
+        <div class="field" id="a-resume-wrap" style="display:none">
+          <label class="f-label" for="a-resume-text">Resume text <span class="f-req">*</span></label>
+          <textarea class="f-textarea" id="a-resume-text" rows="8" placeholder="Paste your resume here — name, experience, education, skills…"></textarea>
+        </div>
+
+        <button class="btn-primary" id="a-btn" onclick="applyViaEmail()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          Send Application — 3 tokens
+        </button>
+        <div class="spin-row" id="a-spin">
+          <div class="ld-spin"></div>
+          <span>Tailoring resume &amp; sending email… up to 90 s</span>
+        </div>
+        <div class="res-box" id="a-res"></div>
+
       </div>
 
       <!-- ── MY PDFs ────────────────────────────────────────────────── -->
@@ -886,6 +1004,7 @@ function switchTab(tab, btn) {
   activeTab = tab;
   if (tab === 'pdfs')    loadPDFs();
   if (tab === 'balance') loadBalTab();
+  if (tab === 'apply')   loadApplyTab();
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -993,6 +1112,129 @@ async function delPDF(name) {
   if (!confirm(`Delete ${name}?`)) return;
   try { await fetch(`/api/pdfs/${name}`, {method:'DELETE'}); loadPDFs(); }
   catch { alert('Delete failed.'); }
+}
+
+// ── Apply via Email ───────────────────────────────────────────────────────
+let applyResumeSource = 'saved';
+let gmailConnected = false;
+
+function setResumeSource(src) {
+  applyResumeSource = src;
+  $('rs-saved').classList.toggle('active', src === 'saved');
+  $('rs-paste').classList.toggle('active', src === 'paste');
+  $('a-resume-wrap').style.display = src === 'paste' ? 'block' : 'none';
+  $('a-source-hint').textContent = src === 'saved'
+    ? 'Your most recently created or tailored resume will be used.'
+    : 'Paste your full resume text — we\'ll tailor it to the JD.';
+}
+
+async function loadApplyTab() {
+  if (!user) return;
+  const banner = $('apply-gmail-banner');
+  try {
+    const r = await fetch(`/auth/gmail/connected/${user.telegram_id}`);
+    const d = await r.json();
+    gmailConnected = d.connected;
+    if (d.connected) {
+      const email = d.email || '';
+      banner.innerHTML = `<div class="gmail-banner ok">
+        <div class="gmail-banner-left">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Gmail connected${email ? ` — sending from <strong>${email}</strong>` : ''}
+        </div>
+      </div>`;
+      $('a-btn').disabled = false;
+    } else {
+      banner.innerHTML = `<div class="gmail-banner warn">
+        <div class="gmail-banner-left">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Gmail not connected — required to send emails
+        </div>
+        <button class="gmail-btn" onclick="connectGmail()">Connect Gmail</button>
+      </div>`;
+      $('a-btn').disabled = true;
+    }
+  } catch {
+    banner.innerHTML = '';
+  }
+}
+
+function connectGmail() {
+  const uid = user?.telegram_id || _uid();
+  fetch(`/auth/url?telegram_user_id=${uid}&source=web`)
+    .then(r => r.json())
+    .then(d => { if (d.url) location.href = d.url; })
+    .catch(() => alert('Could not start Gmail login. Try signing out and back in.'));
+}
+
+async function extractFromJD() {
+  const jd = $('a-jd').value.trim();
+  if (!jd) { showRes('a-res', 'Paste the job description first.', false); return; }
+  // Simple regex extraction for email
+  const emailMatch = jd.match(/[\w.+-]+@[\w-]+\.[\w.]+/);
+  if (emailMatch) {
+    $('a-email').value = emailMatch[0];
+  }
+  // Extract title/company via simple heuristics (best-effort, server does the real work)
+  const titleMatch = jd.match(/(?:position|role|title)[:\s]+([^\n,|•]+)/i);
+  if (titleMatch && !$('a-title').value) {
+    $('a-title').value = titleMatch[1].trim().slice(0, 60);
+  }
+  const coMatch = jd.match(/(?:company|at|organisation|organization)[:\s]+([A-Z][^\n,|•]{2,40})/);
+  if (coMatch && !$('a-company').value) {
+    $('a-company').value = coMatch[1].trim().slice(0, 50);
+  }
+  if (!emailMatch) {
+    showRes('a-res', 'No email found in JD — please enter the recipient email manually.', false);
+  } else {
+    clearRes('a-res');
+  }
+}
+
+async function applyViaEmail() {
+  if (!user) { renderSignIn(); return; }
+  if (!gmailConnected) { showRes('a-res', 'Connect your Gmail first using the button above.', false); return; }
+  const jd    = $('a-jd').value.trim();
+  const email = $('a-email').value.trim();
+  if (!jd)    { showRes('a-res', 'Please paste the job description.', false); return; }
+  if (!email) { showRes('a-res', 'Please enter the recipient email.', false); return; }
+
+  clearRes('a-res');
+  setLoad('a-btn', 'a-spin', true);
+
+  try {
+    const fd = new FormData();
+    fd.append('telegram_user_id', user.telegram_id);
+    fd.append('jd_text',          jd);
+    fd.append('recipient_email',  email);
+    fd.append('job_title',        $('a-title').value.trim());
+    fd.append('company_name',     $('a-company').value.trim());
+    if (applyResumeSource === 'paste') {
+      const rt = $('a-resume-text').value.trim();
+      if (!rt) { showRes('a-res', 'Please paste your resume text.', false); setLoad('a-btn','a-spin',false); return; }
+      fd.append('resume_text', rt);
+    }
+
+    const r = await fetch('/api/apply-smart', { method: 'POST', body: fd });
+    const d = await r.json();
+
+    if (r.status === 401) {
+      gmailConnected = false;
+      showRes('a-res', 'Gmail session expired. Click "Connect Gmail" above and try again.', false);
+      loadApplyTab();
+    } else if (r.status === 402) {
+      showRes('a-res', d.detail || 'Not enough tokens.', false);
+    } else if (d.success) {
+      showRes('a-res', `✉️ Application sent to <strong>${email}</strong>!<br><small style="opacity:.8">Subject: ${d.email_subject || ''}</small>`, true);
+      fetchBalance();
+    } else {
+      showRes('a-res', d.detail || d.message || 'Failed to send. Please try again.', false);
+    }
+  } catch(e) {
+    showRes('a-res', 'Network error: ' + e.message, false);
+  } finally {
+    setLoad('a-btn', 'a-spin', false);
+  }
 }
 
 // ── Balance tab ───────────────────────────────────────────────────────────
