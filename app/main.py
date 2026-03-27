@@ -126,6 +126,40 @@ async def root():
     return {"message": "LaTeX Resume Generator API", "docs": "/docs"}
 
 
+@app.get("/sitemap.xml", response_class=Response)
+async def sitemap():
+    """Sitemap for Google Search Console indexing"""
+    base = settings.public_api_url.rstrip("/")
+    xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>{base}/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>{base}/app</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>"""
+    return Response(content=xml, media_type="application/xml")
+
+
+@app.get("/robots.txt", response_class=Response)
+async def robots():
+    """Robots.txt for crawlers"""
+    base = settings.public_api_url.rstrip("/")
+    content = f"""User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /docs
+Disallow: /redoc
+Sitemap: {base}/sitemap.xml
+"""
+    return Response(content=content, media_type="text/plain")
+
+
 @app.get("/app")
 async def serve_app():
     """Serve the authenticated dashboard app"""
