@@ -52,10 +52,10 @@
       --text-1:     #edf1f7;
       --text-2:     #9aaabb;
       --text-3:     #586880;
-      --accent:     #4d8ef8;
-      --accent-d:   #6ba4ff;
-      --accent-bg:  #0d1c38;
-      --accent-b:   rgba(77,142,248,.25);
+      --accent:     #a78bfa;
+      --accent-d:   #c4b5fd;
+      --accent-bg:  #1e1730;
+      --accent-b:   rgba(167,139,250,.2);
       --green:      #22c55e;
       --green-bg:   #041a0c;
       --amber:      #f59e0b;
@@ -66,6 +66,13 @@
       --sh-md:      0 4px 18px rgba(0,0,0,.5);
       --sh-lg:      0 12px 48px rgba(0,0,0,.6);
     }
+
+    /* ── Thin scrollbar ───────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 100px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+    * { scrollbar-width: thin; scrollbar-color: var(--border-2) transparent; }
 
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
