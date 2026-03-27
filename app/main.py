@@ -1321,20 +1321,17 @@ async def get_token_balance(telegram_id: str):
         plan = profile.get("plan", "free")
         reset_at = profile.get("tokens_reset_at")
 
-        # Calculate days until reset
+        # Calculate days until reset (no third-party imports needed)
         days_until_reset = None
         if reset_at:
-            from datetime import timezone
-            now = datetime.utcnow().replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
             if isinstance(reset_at, str):
-                from dateutil import parser as dtparser
-                reset_dt = dtparser.parse(reset_at)
+                reset_dt = datetime.fromisoformat(reset_at.replace("Z", "+00:00"))
             else:
                 reset_dt = reset_at
             if reset_dt.tzinfo is None:
                 reset_dt = reset_dt.replace(tzinfo=timezone.utc)
-            delta = reset_dt - now
-            days_until_reset = max(0, delta.days)
+            days_until_reset = max(0, (reset_dt - now).days)
 
         return {
             "ok": True,
