@@ -118,13 +118,23 @@ class PDFResponse(BaseModel):
 
 
 @app.get("/")
-
 async def root():
-    """Serve the main HTML page"""
+    """Serve the marketing landing page"""
     html_file = settings.static_dir / "index.html"
     if html_file.exists():
         return FileResponse(html_file)
     return {"message": "LaTeX Resume Generator API", "docs": "/docs"}
+
+
+@app.get("/app")
+async def serve_app():
+    """Serve the authenticated dashboard app"""
+    html_file = settings.static_dir / "app.html"
+    if html_file.exists():
+        return FileResponse(html_file)
+    # Fallback: redirect to root
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("/")
 
 
 @app.post("/api/generate", response_model=PDFResponse)
@@ -652,13 +662,13 @@ async def google_callback(code: str = Query(None), state: str = Query(None), err
         # Mini App flow: return a page that calls Telegram.WebApp.sendData
         return HTMLResponse(_webapp_callback_html(name, email))
     elif source == "web":
-        # Web app flow: redirect back to homepage with user info embedded in URL
-        # so the frontend never needs an extra API call to show the dashboard
+        # Web app flow: redirect to /app with user info in URL params
+        # so the dashboard JS can read them directly — no extra API call needed
         from fastapi.responses import RedirectResponse
         import urllib.parse
         avatar = user_info.get("picture", "") or ""
         redirect_url = (
-            f"/?auth=success"
+            f"/app?auth=success"
             f"&uid={urllib.parse.quote(str(telegram_user_id))}"
             f"&name={urllib.parse.quote(name)}"
             f"&email={urllib.parse.quote(email)}"

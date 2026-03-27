@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>ResumeForge — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#ffffff;--bg2:#f7f8fa;--bg3:#eef0f4;
+      --border:#e3e6ec;--border2:#cdd2db;
+      --t1:#0c1220;--t2:#3d4a5c;--t3:#7a8699;
+      --acc:#1a6ef8;--acc-d:#0f55d0;--acc-bg:#eff5ff;--acc-b:rgba(26,110,248,.2);
+      --green:#16a34a;--green-bg:#f0fdf4;
+      --red:#dc2626;
+      --r8:8px;--r12:12px;--r18:18px;
+      --sh:0 4px 18px rgba(0,0,0,.07),0 2px 6px rgba(0,0,0,.04);
+    }
+    [data-theme="dark"]{
+      --bg:#0b0e14;--bg2:#111520;--bg3:#181d2c;
+      --border:#1f2736;--border2:#28324a;
+      --t1:#edf1f7;--t2:#9aaabb;--t3:#586880;
+      --acc:#4d8ef8;--acc-d:#6ba4ff;--acc-bg:#0d1c38;--acc-b:rgba(77,142,248,.25);
+      --green:#22c55e;--green-bg:#041a0c;
+    }
+    html{font-size:16px;scroll-behavior:smooth}
+    body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t1);line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh}
+    a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+
+    /* ── Loading screen ──────────────────────────────────────────── */
+    #loading{
+      position:fixed;inset:0;background:var(--bg);
+      display:flex;align-items:center;justify-content:center;
+      flex-direction:column;gap:14px;z-index:9999;
+    }
+    .loader-logo{font-size:1.5rem;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:10px}
+    .loader-logo svg{flex-shrink:0}
+    .loader-spin{width:22px;height:22px;border-radius:50%;border:2px solid var(--border2);border-top-color:var(--acc);animation:spin .65s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ── Sign-in screen ──────────────────────────────────────────── */
+    #signin-screen{
+      display:none;min-height:100vh;
+      align-items:center;justify-content:center;
+      flex-direction:column;padding:24px;
+      background:var(--bg2);
+    }
+    .signin-card{
+      background:var(--bg);border:1px solid var(--border);
+      border-radius:var(--r18);padding:48px 40px;
+      max-width:420px;width:100%;text-align:center;
+      box-shadow:var(--sh);
+    }
+    .signin-logo{display:flex;align-items:center;justify-content:center;gap:9px;font-weight:700;font-size:1.1rem;margin-bottom:32px;color:var(--t1)}
+    .signin-card h1{font-size:1.625rem;font-weight:700;letter-spacing:-.022em;margin-bottom:10px}
+    .signin-card p{color:var(--t2);font-size:.9375rem;margin-bottom:32px;line-height:1.7}
+    .btn-google{
+      display:inline-flex;align-items:center;justify-content:center;gap:10px;
+      background:var(--bg);color:var(--t1);font-weight:600;font-size:.9375rem;
+      padding:13px 28px;border-radius:10px;border:1px solid var(--border2);
+      cursor:pointer;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,.07);
+      width:100%;
+    }
+    .btn-google:hover{background:var(--bg3);box-shadow:var(--sh);transform:translateY(-1px)}
+    .signin-note{font-size:.8rem;color:var(--t3);margin-top:16px}
+    .signin-error{background:#fff1f2;border:1px solid rgba(220,38,38,.2);color:var(--red);border-radius:var(--r8);padding:10px 14px;font-size:.875rem;margin-bottom:20px;display:none}
+
+    /* ── App Shell ───────────────────────────────────────────────── */
+    #app{display:none}
+
+    /* NAV */
+    .app-nav{
+      height:58px;background:var(--bg);border-bottom:1px solid var(--border);
+      display:flex;align-items:center;padding:0 24px;gap:12px;
+      position:sticky;top:0;z-index:100;
+    }
+    .app-nav-logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:.9375rem;color:var(--t1);text-decoration:none;flex-shrink:0}
+    .app-nav-logo:hover{text-decoration:none}
+    .app-nav-spacer{flex:1}
+    .app-nav-user{display:flex;align-items:center;gap:8px}
+    .app-avatar{width:30px;height:30px;border-radius:50%;object-fit:cover;background:var(--bg3);border:1.5px solid var(--border);flex-shrink:0}
+    .app-username{font-size:.875rem;font-weight:500;color:var(--t1);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .token-chip{font-size:.75rem;font-weight:700;background:var(--acc-bg);color:var(--acc);padding:3px 9px;border-radius:100px;border:1px solid var(--acc-b);white-space:nowrap}
+    .btn-icon{background:none;border:none;cursor:pointer;color:var(--t3);padding:5px;border-radius:6px;transition:all .15s;font-size:.8rem}
+    .btn-icon:hover{background:var(--bg3);color:var(--t1)}
+
+    /* MAIN AREA */
+    .app-main{max-width:900px;margin:0 auto;padding:28px 20px 60px}
+
+    /* USER BAR */
+    .user-bar{
+      background:var(--bg2);border:1px solid var(--border);border-radius:var(--r12);
+      padding:14px 18px;margin-bottom:20px;
+      display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
+    }
+    .user-bar-info{display:flex;align-items:center;gap:10px}
+    .user-bar-avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;background:var(--bg3);border:1.5px solid var(--border)}
+    .user-bar-name{font-weight:600;font-size:.9375rem;color:var(--t1)}
+    .user-bar-email{font-size:.78rem;color:var(--t3)}
+    .user-bar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .plan-badge{font-size:.75rem;font-weight:700;background:var(--green-bg);color:var(--green);padding:3px 10px;border-radius:100px;border:1px solid rgba(22,163,74,.2)}
+    .signout-btn{font-size:.8rem;font-weight:500;color:var(--t3);background:none;border:1px solid var(--border);border-radius:7px;padding:5px 12px;cursor:pointer;transition:all .15s}
+    .signout-btn:hover{border-color:var(--red);color:var(--red);background:#fff1f2}
+
+    /* TABS */
+    .tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:24px;overflow-x:auto;gap:0}
+    .tab-btn{
+      display:flex;align-items:center;gap:6px;padding:11px 16px;
+      font-size:.875rem;font-weight:500;color:var(--t3);
+      background:none;border:none;cursor:pointer;
+      border-bottom:2px solid transparent;margin-bottom:-1px;
+      white-space:nowrap;transition:all .15s;
+    }
+    .tab-btn:hover{color:var(--t1)}
+    .tab-btn.active{color:var(--acc);border-bottom-color:var(--acc);font-weight:600}
+    .tab-panel{display:none}.tab-panel.active{display:block}
+
+    /* FORMS */
+    .field{margin-bottom:18px}
+    .field-label{display:block;font-size:.8125rem;font-weight:600;color:var(--t2);margin-bottom:6px}
+    .field-label span{font-weight:400;color:var(--t3)}
+    .field-input{
+      width:100%;padding:9px 13px;border:1px solid var(--border2);
+      border-radius:var(--r8);background:var(--bg2);color:var(--t1);
+      font-size:.9rem;font-family:inherit;transition:border .15s;outline:none;
+    }
+    .field-input:focus{border-color:var(--acc);background:var(--bg)}
+    .field-textarea{
+      width:100%;padding:10px 13px;border:1px solid var(--border2);
+      border-radius:var(--r8);background:var(--bg2);color:var(--t1);
+      font-size:.9rem;font-family:inherit;resize:vertical;transition:border .15s;outline:none;
+      line-height:1.55;
+    }
+    .field-textarea:focus{border-color:var(--acc);background:var(--bg)}
+    .field-hint{font-size:.78rem;color:var(--t3);margin-top:5px}
+    .section-note{font-size:.875rem;color:var(--t2);margin-bottom:20px;line-height:1.65;padding:12px 14px;background:var(--acc-bg);border:1px solid var(--acc-b);border-radius:var(--r8)}
+
+    /* BUTTONS */
+    .btn-primary{
+      display:inline-flex;align-items:center;gap:7px;
+      background:var(--acc);color:#fff;font-weight:600;font-size:.9rem;
+      padding:11px 22px;border-radius:9px;border:none;cursor:pointer;
+      transition:all .15s;box-shadow:0 2px 12px rgba(26,110,248,.3);
+    }
+    .btn-primary:hover:not(:disabled){background:var(--acc-d);transform:translateY(-1px)}
+    .btn-primary:disabled{opacity:.55;cursor:not-allowed;transform:none}
+    .btn-ghost{
+      display:inline-flex;align-items:center;gap:6px;
+      background:none;color:var(--t2);font-size:.875rem;font-weight:500;
+      padding:8px 14px;border-radius:8px;border:1px solid var(--border);cursor:pointer;
+      transition:all .15s;
+    }
+    .btn-ghost:hover{background:var(--bg3);color:var(--t1)}
+
+    /* RESULT / SPINNER */
+    .result-box{display:none;border-radius:var(--r8);padding:12px 16px;font-size:.875rem;margin-top:16px;line-height:1.5}
+    .result-box.ok{display:flex;gap:8px;align-items:flex-start;background:var(--green-bg);border:1px solid rgba(22,163,74,.2);color:var(--green)}
+    .result-box.err{display:flex;gap:8px;align-items:flex-start;background:#fff1f2;border:1px solid rgba(220,38,38,.2);color:var(--red)}
+    [data-theme="dark"] .result-box.err{background:#1c0505}
+    .spinner-row{display:none;align-items:center;gap:10px;color:var(--t3);font-size:.875rem;margin-top:14px}
+    .spinner-row.show{display:flex}
+
+    /* PDF LIST */
+    .pdf-list{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+    .pdf-row{
+      display:flex;align-items:center;gap:12px;
+      background:var(--bg);border:1px solid var(--border);
+      border-radius:var(--r8);padding:11px 15px;transition:border-color .15s;
+    }
+    .pdf-row:hover{border-color:var(--acc)}
+    .pdf-icon{font-size:18px;flex-shrink:0}
+    .pdf-info{flex:1;min-width:0}
+    .pdf-name{font-size:.875rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--t1)}
+    .pdf-meta{font-size:.75rem;color:var(--t3);margin-top:1px}
+    .pdf-actions{display:flex;gap:5px;flex-shrink:0}
+    .pdf-btn{
+      width:30px;height:30px;border-radius:6px;border:1px solid var(--border);
+      background:var(--bg2);cursor:pointer;display:flex;align-items:center;justify-content:center;
+      font-size:13px;transition:all .15s;color:var(--t2);text-decoration:none;
+    }
+    .pdf-btn:hover{background:var(--bg3);border-color:var(--border2);color:var(--t1);text-decoration:none}
+    .pdf-btn.del:hover{background:#fff1f2;border-color:var(--red);color:var(--red)}
+    .empty{text-align:center;padding:40px 20px;color:var(--t3);font-size:.875rem}
+
+    /* BALANCE */
+    .bal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px}
+    .bal-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--r12);padding:18px;text-align:center}
+    .bal-num{font-size:1.875rem;font-weight:700;line-height:1.2}
+    .bal-label{font-size:.78rem;color:var(--t3);margin-top:4px}
+    .cost-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:.875rem;color:var(--t2)}
+    .cost-row:last-child{border-bottom:none}
+    .cost-badge{font-size:.75rem;font-weight:700;background:var(--acc-bg);color:var(--acc);padding:2px 8px;border-radius:6px}
+
+    /* THEME */
+    .theme-toggle{width:32px;height:32px;border-radius:7px;border:1px solid var(--border);background:var(--bg2);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--t3);transition:all .15s}
+    .theme-toggle:hover{background:var(--bg3);color:var(--t1)}
+    .icon-moon{display:none}
+    [data-theme="dark"] .icon-sun{display:none}
+    [data-theme="dark"] .icon-moon{display:block}
+
+    @media(max-width:600px){
+      .app-nav{padding:0 14px}
+      .app-main{padding:16px 12px 50px}
+      .signin-card{padding:36px 22px}
+      .app-username{display:none}
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading screen — shown while JS boots, hides once we know auth state -->
+<div id="loading">
+  <div class="loader-logo">
+    <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+      <rect width="28" height="28" rx="7" fill="#1a6ef8"/>
+      <rect x="7" y="8" width="14" height="2" rx="1" fill="#fff"/>
+      <rect x="7" y="13" width="10" height="2" rx="1" fill="rgba(255,255,255,.7)"/>
+      <rect x="7" y="18" width="7" height="2" rx="1" fill="rgba(255,255,255,.45)"/>
+    </svg>
+    ResumeForge
+  </div>
+  <div class="loader-spin"></div>
+</div>
+
+<!-- Sign-in screen -->
+<div id="signin-screen">
+  <div class="signin-card">
+    <div class="signin-logo">
+      <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+        <rect width="28" height="28" rx="7" fill="#1a6ef8"/>
+        <rect x="7" y="8" width="14" height="2" rx="1" fill="#fff"/>
+        <rect x="7" y="13" width="10" height="2" rx="1" fill="rgba(255,255,255,.7)"/>
+        <rect x="7" y="18" width="7" height="2" rx="1" fill="rgba(255,255,255,.45)"/>
+      </svg>
+      ResumeForge
+    </div>
+    <h1>Welcome back</h1>
+    <p>Sign in with Google to create ATS-optimised resumes, tailor them to job descriptions, and manage all your PDFs.</p>
+    <div class="signin-error" id="signin-error"></div>
+    <button class="btn-google" id="signin-btn" onclick="startSignIn()">
+      <svg width="18" height="18" viewBox="0 0 48 48">
+        <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 2.9l5.7-5.7C34.5 6.5 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z"/>
+        <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.5 15.8 18.9 12 24 12c3.1 0 5.8 1.1 7.9 2.9l5.7-5.7C34.5 6.5 29.6 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+        <path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.4 35.5 26.8 36 24 36c-5.3 0-9.7-3.3-11.3-8H6.1C9.5 35.6 16.3 44 24 44z"/>
+        <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l.1-.1 6.2 5.2C37.1 39 44 34 44 24c0-1.2-.1-2.4-.4-3.5z"/>
+      </svg>
+      Continue with Google
+    </button>
+    <p class="signin-note">5 free tokens on first sign-in &middot; No credit card required</p>
+    <p class="signin-note" style="margin-top:8px"><a href="/">← Back to home</a></p>
+  </div>
+</div>
+
+<!-- App (dashboard) -->
+<div id="app">
+  <!-- Nav -->
+  <nav class="app-nav">
+    <a href="/" class="app-nav-logo">
+      <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
+        <rect width="28" height="28" rx="7" fill="#1a6ef8"/>
+        <rect x="7" y="8" width="14" height="2" rx="1" fill="#fff"/>
+        <rect x="7" y="13" width="10" height="2" rx="1" fill="rgba(255,255,255,.7)"/>
+        <rect x="7" y="18" width="7" height="2" rx="1" fill="rgba(255,255,255,.45)"/>
+      </svg>
+      ResumeForge
+    </a>
+    <div class="app-nav-spacer"></div>
+    <div class="app-nav-user">
+      <img id="nav-avatar" class="app-avatar" src="" alt=""
+        onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2230%22 height=%2230%22><circle cx=%2215%22 cy=%2215%22 r=%2215%22 fill=%22%23e5e7eb%22/><circle cx=%2215%22 cy=%2211%22 r=%224%22 fill=%22%239ca3af%22/><ellipse cx=%2215%22 cy=%2226%22 rx=%229%22 ry=%226%22 fill=%22%239ca3af%22/></svg>'">
+      <span id="nav-name" class="app-username"></span>
+      <span id="nav-tokens" class="token-chip">— tokens</span>
+      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+        <svg class="icon-sun" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <svg class="icon-moon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      <button class="btn-icon" onclick="doSignOut()" title="Sign out">⏏ Sign out</button>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main class="app-main">
+
+    <!-- User bar -->
+    <div class="user-bar">
+      <div class="user-bar-info">
+        <img id="ub-avatar" class="user-bar-avatar" src="" alt=""
+          onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2236%22 height=%2236%22><circle cx=%2218%22 cy=%2218%22 r=%2218%22 fill=%22%23e5e7eb%22/><circle cx=%2218%22 cy=%2213%22 r=%225%22 fill=%22%239ca3af%22/><ellipse cx=%2218%22 cy=%2231%22 rx=%2211%22 ry=%227%22 fill=%22%239ca3af%22/></svg>'">
+        <div>
+          <div class="user-bar-name" id="ub-name">Loading…</div>
+          <div class="user-bar-email" id="ub-email"></div>
+        </div>
+      </div>
+      <div class="user-bar-right">
+        <span class="token-chip" id="ub-tokens">— tokens</span>
+        <span class="plan-badge" id="ub-plan">FREE</span>
+        <button class="signout-btn" onclick="doSignOut()">Sign out</button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs" role="tablist">
+      <button class="tab-btn active" data-tab="create" role="tab" onclick="switchTab('create',this)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        Create
+      </button>
+      <button class="tab-btn" data-tab="tailor" role="tab" onclick="switchTab('tailor',this)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Tailor to JD
+      </button>
+      <button class="tab-btn" data-tab="update" role="tab" onclick="switchTab('update',this)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
+        Update
+      </button>
+      <button class="tab-btn" data-tab="pdfs" role="tab" onclick="switchTab('pdfs',this)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        My PDFs
+      </button>
+      <button class="tab-btn" data-tab="balance" role="tab" onclick="switchTab('balance',this)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        Token Balance
+      </button>
+    </div>
+
+    <!-- ── CREATE ─────────────────────────────────────────────────── -->
+    <div class="tab-panel active" id="panel-create">
+      <div class="section-note">Describe your experience in plain text — Gemini AI writes a complete ATS-optimised LaTeX resume and compiles it to PDF. <strong>Costs 2 tokens.</strong></div>
+      <div class="field">
+        <label class="field-label" for="c-filename">Output filename <span>(optional)</span></label>
+        <input class="field-input" id="c-filename" type="text" placeholder="e.g. my_resume_2025" style="max-width:300px">
+      </div>
+      <div class="field">
+        <label class="field-label" for="c-details">Your details</label>
+        <textarea class="field-textarea" id="c-details" rows="13" placeholder="Paste everything about yourself:
+
+Name: Jane Doe
+Email: jane@example.com | Phone: +1-555-0100
+
+EXPERIENCE
+Software Engineer — Acme Corp (Jan 2022 – Present)
+- Built microservices in Python/FastAPI serving 2M requests/day
+- Led Kubernetes migration, reducing deploy time by 60%
+
+EDUCATION
+B.Sc. Computer Science — MIT (2021)
+
+SKILLS
+Python, FastAPI, Docker, Kubernetes, PostgreSQL, React, AWS"></textarea>
+        <div class="field-hint">Include dates, metrics, technologies, and achievements for best results.</div>
+      </div>
+      <button class="btn-primary" id="c-btn" onclick="createResume()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+        Generate Resume PDF
+      </button>
+      <div class="spinner-row" id="c-spin"><div class="loader-spin"></div><span>Gemini is writing your resume… 10–20 seconds.</span></div>
+      <div class="result-box" id="c-result"></div>
+    </div>
+
+    <!-- ── TAILOR ─────────────────────────────────────────────────── -->
+    <div class="tab-panel" id="panel-tailor">
+      <div class="section-note">Paste a job description — AI rewrites your saved resume to match the role, highlighting keywords and reordering bullets for ATS. <strong>Costs 1 token.</strong></div>
+      <div class="field">
+        <label class="field-label" for="t-filename">Output filename <span>(optional)</span></label>
+        <input class="field-input" id="t-filename" type="text" placeholder="e.g. resume_google_2025" style="max-width:300px">
+      </div>
+      <div class="field">
+        <label class="field-label" for="t-resume">Your resume text <span>(leave blank to use your saved resume)</span></label>
+        <textarea class="field-textarea" id="t-resume" rows="6" placeholder="Paste your resume text, or leave blank to use your saved resume…"></textarea>
+      </div>
+      <div class="field">
+        <label class="field-label" for="t-jd">Job description <span style="color:var(--red)">*</span></label>
+        <textarea class="field-textarea" id="t-jd" rows="9" placeholder="Paste the full job description here — title, responsibilities, requirements, tech stack…"></textarea>
+        <div class="field-hint">Include the full JD for best keyword matching.</div>
+      </div>
+      <button class="btn-primary" id="t-btn" onclick="tailorResume()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        Tailor &amp; Generate PDF
+      </button>
+      <div class="spinner-row" id="t-spin"><div class="loader-spin"></div><span>Tailoring your resume… 15–25 seconds.</span></div>
+      <div class="result-box" id="t-result"></div>
+    </div>
+
+    <!-- ── UPDATE ─────────────────────────────────────────────────── -->
+    <div class="tab-panel" id="panel-update">
+      <div class="section-note">Update your saved resume with plain-English instructions — add a new job, change skills, update the tone. <strong>Costs 1 token.</strong></div>
+      <div class="field">
+        <label class="field-label" for="u-instructions">What to update <span style="color:var(--red)">*</span></label>
+        <textarea class="field-textarea" id="u-instructions" rows="8" placeholder="Describe what you want changed, e.g.:
+
+- Add a new job: Senior Engineer at TechCorp (Jan 2024–Present), led team of 5, built payment system
+- Update skills to include Go, gRPC, and Temporal
+- Make the tone more concise and results-focused
+- Add my new education: MBA at Stanford, 2024"></textarea>
+      </div>
+      <div class="field">
+        <label class="field-label" for="u-filename">Output filename <span>(optional)</span></label>
+        <input class="field-input" id="u-filename" type="text" placeholder="e.g. my_resume_updated" style="max-width:300px">
+      </div>
+      <button class="btn-primary" id="u-btn" onclick="updateResume()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
+        Update &amp; Generate PDF
+      </button>
+      <div class="spinner-row" id="u-spin"><div class="loader-spin"></div><span>Updating your resume… 15–25 seconds.</span></div>
+      <div class="result-box" id="u-result"></div>
+    </div>
+
+    <!-- ── MY PDFs ────────────────────────────────────────────────── -->
+    <div class="tab-panel" id="panel-pdfs">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <span style="font-size:.875rem;color:var(--t2)">Your generated resume PDFs — download or delete.</span>
+        <button class="btn-ghost" onclick="loadPDFs()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
+          Refresh
+        </button>
+      </div>
+      <div class="pdf-list" id="pdf-list">
+        <div class="empty">Loading your PDFs…</div>
+      </div>
+    </div>
+
+    <!-- ── TOKEN BALANCE ──────────────────────────────────────────── -->
+    <div class="tab-panel" id="panel-balance">
+      <p style="font-size:.875rem;color:var(--t2);margin-bottom:20px">Your token usage and plan details. Tokens reset every 30 days on the free plan.</p>
+      <div class="bal-grid">
+        <div class="bal-card">
+          <div class="bal-num" id="bal-tokens" style="color:var(--acc)">—</div>
+          <div class="bal-label">Tokens remaining</div>
+        </div>
+        <div class="bal-card">
+          <div class="bal-num" id="bal-plan" style="color:var(--green);font-size:1.4rem">FREE</div>
+          <div class="bal-label">Current plan</div>
+        </div>
+        <div class="bal-card">
+          <div class="bal-num" id="bal-reset" style="font-size:.95rem;line-height:1.4">—</div>
+          <div class="bal-label">Resets on</div>
+        </div>
+      </div>
+      <h3 style="font-size:.9rem;font-weight:600;margin-bottom:12px;color:var(--t2)">Token costs per operation</h3>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r12);padding:4px 16px">
+        <div class="cost-row"><span>Create resume from scratch</span><span class="cost-badge">2 tokens</span></div>
+        <div class="cost-row"><span>Tailor to job description</span><span class="cost-badge">1 token</span></div>
+        <div class="cost-row"><span>Update existing resume</span><span class="cost-badge">1 token</span></div>
+        <div class="cost-row"><span>Apply via email (Gmail)</span><span class="cost-badge">3 tokens</span></div>
+      </div>
+      <div class="result-box" id="bal-result" style="margin-top:14px"></div>
+    </div>
+
+  </main>
+</div><!-- #app -->
+
+<script>
+// ── Theme ──────────────────────────────────────────────────────────────
+const savedTheme = localStorage.getItem('rfc_theme') || 'light';
+document.documentElement.setAttribute('data-theme', savedTheme);
+function toggleTheme() {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('rfc_theme', next);
+}
+
+// ── Session store (localStorage, 24-hour TTL) ──────────────────────────
+const SK = 'rfc_session';
+const TTL = 24 * 60 * 60 * 1000;
+let user = null; // { telegram_id, name, email, avatar, tokens, plan, saved_at }
+
+function _save(u) {
+  u.saved_at = Date.now();
+  localStorage.setItem(SK, JSON.stringify(u));
+  localStorage.setItem('rfc_uid', u.telegram_id);
+}
+function _load() {
+  try {
+    const raw = localStorage.getItem(SK);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    if (!s || !s.telegram_id) return null;
+    if (Date.now() - (s.saved_at || 0) > TTL) { localStorage.removeItem(SK); return null; }
+    return s;
+  } catch { return null; }
+}
+function _clear() {
+  localStorage.removeItem(SK);
+  localStorage.removeItem('rfc_uid');
+}
+function _uid() {
+  const s = _load();
+  if (s) return s.telegram_id;
+  let uid = localStorage.getItem('rfc_uid');
+  if (!uid) { uid = String(Date.now()); localStorage.setItem('rfc_uid', uid); }
+  return uid;
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const authStatus = params.get('auth');
+
+  // ── Returning from Google OAuth ──────────────────────────────────
+  if (authStatus === 'success') {
+    const uid    = params.get('uid')    || '';
+    const name   = params.get('name')   || 'User';
+    const email  = params.get('email')  || '';
+    const avatar = params.get('avatar') || '';
+    if (uid) {
+      user = { telegram_id: uid, name, email, avatar, tokens: 5, plan: 'free' };
+      _save(user);
+      history.replaceState({}, '', '/app');
+      showApp();
+      fetchBalance(); // get real token count in background
+      return;
+    }
+  }
+
+  // ── OAuth error ───────────────────────────────────────────────────
+  if (authStatus === 'error' || params.get('error')) {
+    showSignIn('Sign-in failed. Please try again.');
+    return;
+  }
+
+  // ── Check cached session ──────────────────────────────────────────
+  const cached = _load();
+  if (cached) {
+    user = cached;
+    showApp();
+    fetchBalance();
+    return;
+  }
+
+  // ── No session ────────────────────────────────────────────────────
+  showSignIn();
+});
+
+// ── Screen transitions ────────────────────────────────────────────────
+function hide(id) { document.getElementById(id).style.display = 'none'; }
+function show(id, display = 'block') { document.getElementById(id).style.display = display; }
+
+function showSignIn(errMsg) {
+  hide('loading');
+  hide('app');
+  show('signin-screen', 'flex');
+  if (errMsg) {
+    const el = document.getElementById('signin-error');
+    el.textContent = errMsg;
+    el.style.display = 'block';
+  }
+}
+
+function showApp() {
+  hide('loading');
+  hide('signin-screen');
+  show('app');
+
+  // Populate UI
+  const t = user.tokens ?? 5;
+  const plan = (user.plan || 'free').toUpperCase();
+
+  // Nav
+  setImg('nav-avatar', user.avatar);
+  setText('nav-name', (user.name || 'User').split(' ')[0]);
+  setText('nav-tokens', `${t} token${t !== 1 ? 's' : ''}`);
+
+  // User bar
+  setImg('ub-avatar', user.avatar);
+  setText('ub-name', user.name || 'User');
+  setText('ub-email', user.email || '');
+  setText('ub-tokens', `${t} token${t !== 1 ? 's' : ''} remaining`);
+  setText('ub-plan', plan);
+
+  // Load PDFs on dashboard open
+  loadPDFs();
+}
+
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+function setImg(id, src) {
+  const el = document.getElementById(id);
+  if (el && src) el.src = src;
+}
+
+// ── Token balance (background refresh) ────────────────────────────────
+async function fetchBalance() {
+  if (!user) return;
+  try {
+    const r = await fetch(`/api/users/${user.telegram_id}/balance`);
+    if (!r.ok) return;
+    const d = await r.json();
+    if (!d.ok) return;
+    user.tokens = d.tokens_remaining ?? user.tokens;
+    user.plan   = d.plan || user.plan;
+    _save(user);
+    updateTokenUI(user.tokens, user.plan);
+    // Update balance panel if open
+    updateBalancePanel(d);
+  } catch { /* silent */ }
+}
+
+function updateTokenUI(t, plan) {
+  setText('nav-tokens', `${t} token${t !== 1 ? 's' : ''}`);
+  setText('ub-tokens', `${t} token${t !== 1 ? 's' : ''} remaining`);
+  setText('ub-plan', (plan || 'free').toUpperCase());
+}
+
+function updateBalancePanel(d) {
+  setText('bal-tokens', d.tokens_remaining ?? '—');
+  setText('bal-plan', (d.plan || 'free').toUpperCase());
+  if (d.reset_at) {
+    try {
+      const dt = new Date(d.reset_at);
+      setText('bal-reset', dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }));
+    } catch { setText('bal-reset', d.reset_at); }
+  }
+}
+
+// ── Sign in ────────────────────────────────────────────────────────────
+async function startSignIn() {
+  const btn = document.getElementById('signin-btn');
+  btn.disabled = true;
+  btn.textContent = 'Redirecting to Google…';
+  try {
+    const uid = _uid();
+    const r = await fetch(`/auth/url?telegram_user_id=${uid}&source=web`);
+    const d = await r.json();
+    if (d.url) {
+      window.location.href = d.url;
+    } else {
+      throw new Error(d.detail || 'No URL returned');
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 2.9l5.7-5.7C34.5 6.5 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.5 15.8 18.9 12 24 12c3.1 0 5.8 1.1 7.9 2.9l5.7-5.7C34.5 6.5 29.6 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.4 35.5 26.8 36 24 36c-5.3 0-9.7-3.3-11.3-8H6.1C9.5 35.6 16.3 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l.1-.1 6.2 5.2C37.1 39 44 34 44 24c0-1.2-.1-2.4-.4-3.5z"/></svg> Continue with Google`;
+    showSignIn('Could not connect to server. Please try again.');
+  }
+}
+
+// ── Sign out ───────────────────────────────────────────────────────────
+function doSignOut() {
+  const uid = localStorage.getItem('rfc_uid');
+  if (uid) fetch(`/auth/session/${uid}`, { method: 'DELETE' }).catch(() => {});
+  _clear();
+  user = null;
+  showSignIn();
+}
+
+// ── Tab switching ──────────────────────────────────────────────────────
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const panel = document.getElementById('panel-' + tab);
+  if (panel) panel.classList.add('active');
+  if (tab === 'pdfs')    loadPDFs();
+  if (tab === 'balance') loadBalanceTab();
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────
+function setLoading(btnId, spinId, on) {
+  document.getElementById(btnId).disabled = on;
+  document.getElementById(spinId).classList.toggle('show', on);
+}
+function showResult(id, msg, ok) {
+  const el = document.getElementById(id);
+  el.className = 'result-box ' + (ok ? 'ok' : 'err');
+  el.innerHTML = (ok ? '✅ ' : '❌ ') + msg;
+}
+function clearResult(id) {
+  const el = document.getElementById(id);
+  el.className = 'result-box';
+  el.innerHTML = '';
+}
+function pdfLink(fn) {
+  return `<a href="/api/pdfs/${fn}" target="_blank" style="color:inherit;font-weight:600;text-decoration:underline">Download PDF ↗</a>`;
+}
+
+// ── Create Resume ──────────────────────────────────────────────────────
+async function createResume() {
+  if (!user) { showSignIn(); return; }
+  const details = document.getElementById('c-details').value.trim();
+  if (!details) { showResult('c-result', 'Please describe your experience first.', false); return; }
+  clearResult('c-result');
+  setLoading('c-btn', 'c-spin', true);
+  try {
+    const r = await fetch('/api/v2/create-resume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: user.telegram_id, user_details_text: details })
+    });
+    const d = await r.json();
+    if (r.status === 402) {
+      showResult('c-result', d.detail || 'Not enough tokens. Please wait for your token reset.', false); return;
+    }
+    if (d.success || d.filename) {
+      showResult('c-result', `Resume created! ${pdfLink(d.filename || d.pdf_filename)}`, true);
+      fetchBalance(); loadPDFs();
+    } else {
+      showResult('c-result', d.detail || d.message || 'Generation failed. Please try again.', false);
+    }
+  } catch (e) { showResult('c-result', 'Network error: ' + e.message, false); }
+  finally { setLoading('c-btn', 'c-spin', false); }
+}
+
+// ── Tailor Resume ──────────────────────────────────────────────────────
+async function tailorResume() {
+  if (!user) { showSignIn(); return; }
+  const jd = document.getElementById('t-jd').value.trim();
+  if (!jd) { showResult('t-result', 'Please paste a job description.', false); return; }
+  clearResult('t-result');
+  setLoading('t-btn', 't-spin', true);
+  try {
+    const resumeText = document.getElementById('t-resume').value.trim();
+    const r = await fetch('/api/v2/tailor-resume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: user.telegram_id, jd_text: jd, resume_text: resumeText || '' })
+    });
+    const d = await r.json();
+    if (r.status === 402) {
+      showResult('t-result', d.detail || 'Not enough tokens.', false); return;
+    }
+    if (d.success || d.filename) {
+      showResult('t-result', `Resume tailored! ${pdfLink(d.filename || d.pdf_filename)}`, true);
+      fetchBalance(); loadPDFs();
+    } else {
+      showResult('t-result', d.detail || d.message || 'Tailoring failed. Please try again.', false);
+    }
+  } catch (e) { showResult('t-result', 'Network error: ' + e.message, false); }
+  finally { setLoading('t-btn', 't-spin', false); }
+}
+
+// ── Update Resume ──────────────────────────────────────────────────────
+async function updateResume() {
+  if (!user) { showSignIn(); return; }
+  const instructions = document.getElementById('u-instructions').value.trim();
+  if (!instructions) { showResult('u-result', 'Please describe what to update.', false); return; }
+  clearResult('u-result');
+  setLoading('u-btn', 'u-spin', true);
+  try {
+    const r = await fetch('/api/update-resume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: user.telegram_id, update_instructions: instructions })
+    });
+    const d = await r.json();
+    if (r.status === 402) {
+      showResult('u-result', d.detail || 'Not enough tokens.', false); return;
+    }
+    if (d.success || d.filename) {
+      showResult('u-result', `Resume updated! ${pdfLink(d.filename || d.pdf_filename)}`, true);
+      fetchBalance(); loadPDFs();
+    } else {
+      showResult('u-result', d.detail || d.message || 'Update failed. Please try again.', false);
+    }
+  } catch (e) { showResult('u-result', 'Network error: ' + e.message, false); }
+  finally { setLoading('u-btn', 'u-spin', false); }
+}
+
+// ── My PDFs ────────────────────────────────────────────────────────────
+async function loadPDFs() {
+  const wrap = document.getElementById('pdf-list');
+  if (!user) return;
+  wrap.innerHTML = '<div class="empty"><div class="loader-spin" style="margin:0 auto"></div></div>';
+  try {
+    const r = await fetch(`/api/pdfs?user_id=${user.telegram_id}`);
+    const d = await r.json();
+    const files = d.files || d.pdfs || [];
+    if (!files.length) {
+      wrap.innerHTML = '<div class="empty">No PDFs yet — create your first resume above!</div>';
+      return;
+    }
+    wrap.innerHTML = files.map(f => {
+      const name = typeof f === 'string' ? f : f.filename;
+      const size = f.size_kb ? ` · ${f.size_kb} KB` : '';
+      const date = f.created_at ? ` · ${new Date(f.created_at).toLocaleDateString()}` : '';
+      return `<div class="pdf-row">
+        <div class="pdf-icon">📄</div>
+        <div class="pdf-info">
+          <div class="pdf-name">${name}</div>
+          <div class="pdf-meta">PDF${size}${date}</div>
+        </div>
+        <div class="pdf-actions">
+          <a href="/api/pdfs/${name}" target="_blank" class="pdf-btn" title="Download" download>⬇</a>
+          <button class="pdf-btn del" title="Delete" onclick="deletePDF('${name}')">🗑</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch {
+    wrap.innerHTML = '<div class="empty">Failed to load PDFs. Please refresh.</div>';
+  }
+}
+
+async function deletePDF(name) {
+  if (!confirm(`Delete ${name}?`)) return;
+  try {
+    await fetch(`/api/pdfs/${name}`, { method: 'DELETE' });
+    loadPDFs();
+  } catch { alert('Delete failed. Please try again.'); }
+}
+
+// ── Token Balance tab ──────────────────────────────────────────────────
+async function loadBalanceTab() {
+  if (!user) return;
+  clearResult('bal-result');
+  // Show cached values immediately
+  updateBalancePanel({ tokens_remaining: user.tokens, plan: user.plan });
+  // Then fetch fresh
+  try {
+    const r = await fetch(`/api/users/${user.telegram_id}/balance`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    if (!d.ok) throw new Error('API error');
+    user.tokens = d.tokens_remaining ?? user.tokens;
+    user.plan   = d.plan || user.plan;
+    _save(user);
+    updateTokenUI(user.tokens, user.plan);
+    updateBalancePanel(d);
+  } catch (e) {
+    showResult('bal-result', 'Could not refresh balance: ' + e.message, false);
+  }
+}
+</script>
+</body>
+</html>
