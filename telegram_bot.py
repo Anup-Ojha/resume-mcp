@@ -49,6 +49,7 @@ def _api_call(method: str, path: str, timeout: int = 30, **kwargs):
 # ── Conversation states ───────────────────────────────────────────────────────
 # /create flow
 CREATE_COLLECTING_DETAILS = 0   # Receive details text / file
+CREATE_NAME_STEP          = 14  # Confirm candidate name
 CREATE_PROMPT_STEP        = 9   # Optional: receive extra AI instruction
 
 # /tailor flow
@@ -165,6 +166,7 @@ def create_resume_v2(
     user_details_text: str,
     user_id: str,
     custom_prompt: str = None,
+    candidate_name: str = None,
 ) -> dict:
     """
     [v2]  Jinja2 + LaTeX pipeline.
@@ -177,6 +179,8 @@ def create_resume_v2(
     }
     if custom_prompt:
         payload["custom_prompt"] = custom_prompt
+    if candidate_name:
+        payload["candidate_name"] = candidate_name
     return _post("/api/v2/create-resume", json=payload, timeout=150)
 
 
@@ -583,6 +587,20 @@ async def create_got_details(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     await update.message.reply_text(
         "✅ Got your details!\n\n"
+        "What is the *full name* that should appear at the top of your resume?\n\n"
+        "_Type the name exactly as you want it printed, e.g._ `Anup Ojha`",
+        parse_mode="Markdown",
+    )
+    return CREATE_NAME_STEP
+
+
+async def create_got_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Receive the candidate name then ask for optional AI prompt."""
+    name = update.message.text.strip()
+    if name:
+        context.user_data["candidate_name"] = name
+    await update.message.reply_text(
+        f"✅ Name set to *{name}*\n\n"
         "Would you like to add any special AI instructions?\n\n"
         "_Examples:_\n"
         "• \"Focus on backend engineering and system design\"\n"
@@ -624,12 +642,16 @@ async def _do_create(msg_obj, context: ContextTypes.DEFAULT_TYPE):
     [v2]  Create resume using the Jinja2 + LaTeX pipeline.
     Flow: user text (or parsed file)  →  Gemini JSON  →  Jinja2 LaTeX  →  /api/generate  →  PDF
     """
-    details_text  = context.user_data.get("create_details_text", "")
-    file_bytes    = context.user_data.get("create_file_bytes")
-    file_name     = context.user_data.get("create_file_name", "resume.pdf")
-    custom_prompt = context.user_data.get("custom_prompt")
-    user_id       = context.user_data.get("create_user_id", "")
-    display_base  = context.user_data.get("create_filename") or f"resume_{user_id}"
+    details_text   = context.user_data.get("create_details_text", "")
+    file_bytes     = context.user_data.get("create_file_bytes")
+    file_name      = context.user_data.get("create_file_name", "resume.pdf")
+    custom_prompt  = context.user_data.get("custom_prompt")
+    user_id        = context.user_data.get("create_user_id", "")
+    candidate_name = context.user_data.get("candidate_name")
+    display_base   = (
+        "_".join(candidate_name.split()) if candidate_name
+        else context.user_data.get("create_filename") or f"resume_{user_id}"
+    )
 
     await msg_obj.reply_text(
         "⚙️ Creating your resume… this may take up to 90 seconds.\n"
@@ -653,6 +675,7 @@ async def _do_create(msg_obj, context: ContextTypes.DEFAULT_TYPE):
         user_details_text=details_text,
         user_id=user_id,
         custom_prompt=custom_prompt,
+        candidate_name=candidate_name,
     )
 
     if result.get("success"):
@@ -1698,6 +1721,9 @@ def main():
                     (filters.TEXT | filters.Document.ALL | filters.PHOTO) & ~filters.COMMAND,
                     create_got_details
                 ),
+            ],
+            CREATE_NAME_STEP: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, create_got_name),
             ],
             CREATE_PROMPT_STEP: [
                 CallbackQueryHandler(create_prompt_choice, pattern="^prompt_(skip|add)$"),

@@ -1242,6 +1242,7 @@ class CreateResumeV2Request(BaseModel):
     user_details_text: str
     user_id: str
     custom_prompt: Optional[str] = None
+    candidate_name: Optional[str] = None  # If set, overrides AI-extracted name
 
 
 class TailorResumeV2Request(BaseModel):
@@ -1289,7 +1290,8 @@ async def create_resume_v2(request: CreateResumeV2Request):
 
     # 1 — AI → JSON
     ok, resume_dict, msg = resume_customizer.generate_resume_json(
-        request.user_details_text, request.custom_prompt
+        request.user_details_text, request.custom_prompt,
+        candidate_name=request.candidate_name,
     )
     if not ok:
         raise HTTPException(status_code=500, detail=msg)

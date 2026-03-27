@@ -122,6 +122,7 @@ Respond in JSON format with keys: technical_skills, soft_skills, responsibilitie
         self,
         user_details_text: str,
         custom_prompt: Optional[str] = None,
+        candidate_name: Optional[str] = None,
     ) -> Tuple[bool, str, str]:
         """
         Create a complete professional LaTeX resume from scratch using free-form user details.
@@ -129,6 +130,7 @@ Respond in JSON format with keys: technical_skills, soft_skills, responsibilitie
         Args:
             user_details_text: Free-form text describing the user (name, experience, skills, etc.)
             custom_prompt: Optional extra AI instructions (e.g. "focus on leadership", "ATS-friendly")
+            candidate_name: If provided, ALWAYS use this as the header name (overrides AI extraction)
 
         Returns:
             Tuple of (success, latex_code, message)
@@ -137,6 +139,7 @@ Respond in JSON format with keys: technical_skills, soft_skills, responsibilitie
             return False, "", "Gemini API key not configured."
 
         template = self._load_template()
+        name_override = f"\n\n⚠️ CANDIDATE NAME OVERRIDE — MANDATORY: The candidate's name in the LaTeX header MUST be exactly \"{candidate_name}\". Do not use any other name found in the text." if candidate_name else ""
         extra = f"\n\nAdditional instructions:\n{custom_prompt}" if custom_prompt else ""
 
         template_block = f"""
@@ -168,6 +171,7 @@ into the provided template. The template defines ALL styling — you must not ch
 --- CANDIDATE DETAILS START ---
 {user_details_text}
 --- CANDIDATE DETAILS END ---
+{name_override}
 {extra}
 
 Return ONLY raw LaTeX code. No markdown fences, no explanations, no comments outside the LaTeX document."""
@@ -176,7 +180,7 @@ Return ONLY raw LaTeX code. No markdown fences, no explanations, no comments out
             response = _gemini_generate(self.client,
                 model=self.MODEL,
                 contents=prompt,
-                config=types.GenerateContentConfig(temperature=0.3, max_output_tokens=4096)
+                config=types.GenerateContentConfig(temperature=0.3, max_output_tokens=8192)
             )
             latex = response.text.strip()
             if latex.startswith("```"):
@@ -236,7 +240,7 @@ Rules:
             response = _gemini_generate(self.client,
                 model=self.MODEL,
                 contents=prompt,
-                config=types.GenerateContentConfig(temperature=0.3, max_output_tokens=4096)
+                config=types.GenerateContentConfig(temperature=0.3, max_output_tokens=8192)
             )
             latex = response.text.strip()
             if latex.startswith("```"):
@@ -314,7 +318,7 @@ Return ONLY the modified LaTeX code, no explanations, no markdown fences."""
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.3,
-                    max_output_tokens=4000
+                    max_output_tokens=8192
                 )
             )
             
@@ -451,7 +455,7 @@ Return ONLY raw LaTeX code. No markdown fences, no explanations, no comments out
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.3,
-                    max_output_tokens=4096
+                    max_output_tokens=8192
                 )
             )
 
@@ -669,7 +673,7 @@ Return ONLY a JSON object with key "bullets" containing an array of exactly 3 st
                 config=types.GenerateContentConfig(
                     temperature=0.2,
                     response_mime_type="application/json",
-                    max_output_tokens=4096,
+                    max_output_tokens=8192,
                 ),
             )
             raw = response.text
@@ -687,6 +691,7 @@ Return ONLY a JSON object with key "bullets" containing an array of exactly 3 st
         self,
         user_details_text: str,
         custom_prompt: Optional[str] = None,
+        candidate_name: Optional[str] = None,
     ) -> Tuple[bool, dict, str]:
         """
         [v2]  Chunked AI → structured JSON.
@@ -726,7 +731,7 @@ Return ONLY a JSON object with key "bullets" containing an array of exactly 3 st
         prompt_a = f"""You are a resume data extractor.
 From CANDIDATE DETAILS extract personal info, education, skills, certifications, and awards.
 {DATA_RULES}
-- Skills: categorise into languages, frameworks, databases, cloud_devops, tools.
+- Skills: categorise into the 5 buckets. For tech professionals use: languages, frameworks, databases, cloud_devops, tools. For finance/ops professionals repurpose buckets: languages=ERP & Systems (SAP/Oracle/PEGA etc.), frameworks=Finance Operations (AR/AP/Billing/O2C etc.), databases=Reporting & Compliance (Month-End/Audit/Tax etc.), cloud_devops=Process & Analytics (RCA/SOP/Excel/Data Analysis etc.), tools=Soft Skills (Leadership/Stakeholder Management etc.).
 - Hobbies and activities: OMIT entirely.
 
 OUTPUT JSON matching this schema exactly:
@@ -752,8 +757,8 @@ Return ONLY valid JSON."""
         prompt_b = f"""You are a resume data extractor.
 From CANDIDATE DETAILS extract ALL work experience entries.
 {DATA_RULES}
-- Each bullet: 12–20 words. Wrap technologies, tools, and metrics in **bold**.
-- MAX 5 bullets per role. Keep them concise and impact-focused.
+- Each bullet: at least 12 words. Wrap technologies, tools, and metrics in **bold**.
+- Include ALL bullets provided — do NOT drop or merge any. If the original has 8-10 bullets for a role, keep all of them.
 - ONLY work experience — do NOT include projects.
 
 OUTPUT JSON matching this schema exactly:
@@ -804,6 +809,9 @@ Return ONLY valid JSON."""
             "experience": data_b.get("experience", []),
             "projects":   data_c.get("projects", []),
         }
+        # Name override: if caller supplied a name, always use it
+        if candidate_name:
+            merged["name"] = candidate_name
         return True, merged, "Resume JSON generated successfully (chunked)."
 
     def generate_tailored_json(
