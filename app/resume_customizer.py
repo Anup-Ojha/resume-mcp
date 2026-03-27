@@ -5,12 +5,36 @@ Uses Google Gemini AI to intelligently customize resume LaTeX code based on job 
 """
 
 import os
+import time
 import logging
 from typing import Dict, List, Optional, Tuple
 from google import genai
 from google.genai import types
 
 logger = logging.getLogger(__name__)
+
+_RETRY_DELAYS = [5, 15, 30]  # seconds between retries on 429
+
+def _gemini_generate(client, model: str, contents, config, label: str = ""):
+    """Call Gemini generate_content with automatic retry on 429 rate-limit errors."""
+    last_exc = None
+    for attempt, delay in enumerate([0] + _RETRY_DELAYS, start=1):
+        if delay:
+            logger.warning(f"Gemini 429 rate-limit{f' [{label}]' if label else ''} — retry {attempt-1}/3 in {delay}s…")
+            time.sleep(delay)
+        try:
+            return client.models.generate_content(
+                model=model,
+                contents=contents,
+                config=config,
+            )
+        except Exception as e:
+            err_str = str(e)
+            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                last_exc = e
+                continue  # retry
+            raise  # non-429 error → re-raise immediately
+    raise last_exc  # exhausted all retries
 
 
 class ResumeCustomizer:
@@ -72,7 +96,7 @@ Job Description:
 
 Respond in JSON format with keys: technical_skills, soft_skills, responsibilities, experience_level, qualifications"""
             
-            response = self.client.models.generate_content(
+            response = _gemini_generate(self.client,
                 model=self.MODEL,
                 contents=prompt,
                 config=types.GenerateContentConfig(
@@ -149,7 +173,7 @@ into the provided template. The template defines ALL styling — you must not ch
 Return ONLY raw LaTeX code. No markdown fences, no explanations, no comments outside the LaTeX document."""
 
         try:
-            response = self.client.models.generate_content(
+            response = _gemini_generate(self.client,
                 model=self.MODEL,
                 contents=prompt,
                 config=types.GenerateContentConfig(temperature=0.3, max_output_tokens=4096)
@@ -209,7 +233,7 @@ Rules:
 5. Return ONLY the complete updated LaTeX code — no explanations, no markdown fences."""
 
         try:
-            response = self.client.models.generate_content(
+            response = _gemini_generate(self.client,
                 model=self.MODEL,
                 contents=prompt,
                 config=types.GenerateContentConfig(temperature=0.3, max_output_tokens=4096)
@@ -285,7 +309,7 @@ Current Resume (LaTeX) — tailor this:
 
 Return ONLY the modified LaTeX code, no explanations, no markdown fences."""
 
-            response = self.client.models.generate_content(
+            response = _gemini_generate(self.client,
                 model=self.MODEL,
                 contents=prompt,
                 config=types.GenerateContentConfig(
@@ -422,7 +446,7 @@ then tailor the content to match the job requirements.
 
 Return ONLY raw LaTeX code. No markdown fences, no explanations, no comments outside the LaTeX document."""
 
-            response = self.client.models.generate_content(
+            response = _gemini_generate(self.client,
                 model=self.MODEL,
                 contents=prompt,
                 config=types.GenerateContentConfig(
@@ -479,7 +503,7 @@ Job Description:
 {jd_text[:3000]}
 
 Respond ONLY in JSON with keys: recipient_email, job_title, company_name, key_requirements"""
-            response = self.client.models.generate_content(
+            response = _gemini_generate(self.client,
                 model=self.MODEL,
                 contents=prompt,
                 config=types.GenerateContentConfig(
@@ -538,7 +562,7 @@ Rules:
 - Sign off with applicant name
 
 Respond ONLY in JSON with keys: subject, body"""
-            response = self.client.models.generate_content(
+            response = _gemini_generate(self.client,
                 model=self.MODEL,
                 contents=prompt,
                 config=types.GenerateContentConfig(
@@ -604,7 +628,7 @@ Return ONLY a JSON object with key "bullets" containing an array of exactly 3 st
 
         try:
             import json
-            response = self.client.models.generate_content(
+            response = _gemini_generate(self.client,
                 model=self.MODEL,
                 contents=[
                     types.Content(role="user", parts=[
@@ -639,7 +663,7 @@ Return ONLY a JSON object with key "bullets" containing an array of exactly 3 st
         """
         import json as _json
         try:
-            response = self.client.models.generate_content(
+            response = _gemini_generate(self.client,
                 model=self.MODEL,
                 contents=prompt,
                 config=types.GenerateContentConfig(
