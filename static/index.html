@@ -134,7 +134,7 @@
       color: var(--text-1); text-decoration: none;
       flex-shrink: 0; margin-right: 16px;
     }
-    .logo svg { flex-shrink: 0; }
+    .logo-img { width:32px;height:32px;border-radius:8px;object-fit:cover;flex-shrink:0; }
 
     .nav-links {
       display: flex; align-items: center; gap: 2px; flex: 1;
@@ -538,7 +538,7 @@
 <!-- NAV -->
 <nav>
   <a href="/" class="logo" aria-label="Resume-MCP">
-    <img src="/static/logo.svg" width="30" height="30" alt="Resume-MCP logo" style="flex-shrink:0" />
+    <img src="/static/logo.png" class="logo-img" alt="Resume-MCP logo" onerror="this.src='/static/logo.svg';this.className=''" />
     Resume-MCP
   </a>
 
@@ -860,12 +860,7 @@
 <footer>
   <div class="foot-in">
     <div class="foot-logo">
-      <svg width="20" height="20" viewBox="0 0 28 28" fill="none">
-        <rect width="28" height="28" rx="7" fill="var(--accent)"/>
-        <rect x="7" y="8" width="14" height="2" rx="1" fill="#fff"/>
-        <rect x="7" y="13" width="10" height="2" rx="1" fill="rgba(255,255,255,.7)"/>
-        <rect x="7" y="18" width="7" height="2" rx="1" fill="rgba(255,255,255,.45)"/>
-      </svg>
+      <img src="/static/logo.png" style="width:22px;height:22px;border-radius:5px;object-fit:cover" alt="Resume-MCP" onerror="this.style.display='none'">
       Resume-MCP
     </div>
     <div class="foot-nav">
@@ -874,7 +869,10 @@
       <a href="/blogs/">Blog</a>
       <a href="/docs" target="_blank" rel="noopener">Docs</a>
     </div>
-    <div class="foot-copy">Built with FastAPI · Gemini · LaTeX</div>
+    <div class="foot-copy">
+      Built with FastAPI · Gemini · LaTeX
+      <span id="foot-deploy" style="margin-left:10px;opacity:.55;font-size:.72rem"></span>
+    </div>
   </div>
 </footer>
 
@@ -939,6 +937,17 @@
   loadStats();
   loadHealth();
   setInterval(loadHealth, 60000);
+
+  // ── Deploy timestamp ────────────────────────────────────────────
+  fetch('/api/build-info').then(r=>r.json()).then(d=>{
+    const el = document.getElementById('foot-deploy');
+    if (!el) return;
+    const iso = d.deploy_time || d.server_started;
+    if (!iso) return;
+    const dt = new Date(iso);
+    el.textContent = '· Last updated ' + dt.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})
+      + (d.git_hash && d.git_hash!=='unknown' ? ' (' + d.git_hash + ')' : '');
+  }).catch(()=>{});
 
   // ── Particle canvas: drift→spotlight→paper-plane→fly to HR desk ─
   (function () {

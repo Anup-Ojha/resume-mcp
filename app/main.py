@@ -12,6 +12,7 @@ import logging
 import tempfile
 import secrets
 import httpx
+import subprocess
 from pathlib import Path
 
 from app.config import settings
@@ -26,9 +27,45 @@ from mcp_server.server import mcp_app
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# ── Build / deploy info (populated at startup) ────────────────────────────
+_BUILD_INFO: dict = {}
+
+
+def _get_git_info() -> dict:
+    """Read git commit hash and date from the repo (works inside Docker)."""
+    try:
+        cwd = Path(__file__).parent.parent  # repo root
+        git_hash = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=cwd, stderr=subprocess.DEVNULL
+        ).decode().strip()
+        git_date = subprocess.check_output(
+            ["git", "log", "-1", "--format=%cI"],
+            cwd=cwd, stderr=subprocess.DEVNULL
+        ).decode().strip()
+        git_msg = subprocess.check_output(
+            ["git", "log", "-1", "--format=%s"],
+            cwd=cwd, stderr=subprocess.DEVNULL
+        ).decode().strip()
+        return {"git_hash": git_hash, "git_date": git_date, "git_message": git_msg}
+    except Exception:
+        return {"git_hash": "unknown", "git_date": None, "git_message": ""}
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _BUILD_INFO
+    # Populate build info
+    now = datetime.now(timezone.utc)
+    git = _get_git_info()
+    _BUILD_INFO = {
+        "server_started": now.isoformat(),
+        "deploy_time":    (git["git_date"] or now.isoformat()),
+        "git_hash":       git["git_hash"],
+        "git_message":    git["git_message"],
+    }
+    logger.info(f"🚀 Server started — commit {git['git_hash']} @ {git['git_date']}")
+
     # Create all DB tables on startup if they don't exist
     try:
         from app.database import engine
@@ -345,6 +382,12 @@ async def delete_pdf(filename: str, user_id: Optional[str] = Query(None)):
     except Exception as e:
         logger.error(f"Error deleting PDF: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/build-info")
+async def build_info():
+    """Return deploy/build timestamp and git info for the footer 'Last updated' display."""
+    return _BUILD_INFO
 
 
 @app.get("/api/health")
