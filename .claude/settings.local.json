@@ -38,7 +38,9 @@
       "Bash(supabase)",
       "Bash(picoclaw)",
       "Bash(whatsapp)",
-      "Bash(PUBLIC_URL \")"
+      "Bash(PUBLIC_URL \")",
+      "Bash(find '/d/anup data/All COmpany Projects/local resume creator/static' -type f \\\\\\(-name *.html -o -name *.js -o -name *.ts -o -name *.jsx -o -name *.tsx \\\\\\))",
+      "Bash(xargs ls:*)"
     ]
   }
 }

@@ -511,6 +511,17 @@ class PostgresDB:
         """Awaitable version — call this from FastAPI endpoints."""
         return await self._get_telegram_user(telegram_id)
 
+    async def async_get_telegram_user_by_google_id(
+        self, google_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Find an existing user by their Google account ID (prevents token reset on re-login)."""
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(TelegramUser).where(TelegramUser.google_id == google_id)
+            )
+            user = result.scalar_one_or_none()
+            return self._user_to_dict(user) if user else None
+
     async def async_save_google_tokens(
         self,
         telegram_id: int,

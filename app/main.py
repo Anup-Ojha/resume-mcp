@@ -793,6 +793,14 @@ async def google_callback(code: str = Query(None), state: str = Query(None), err
     if not ok:
         return HTMLResponse(_callback_html("❌ Auth failed", msg, success=False))
 
+    # Check if this Google account already belongs to an existing user.
+    # If so, reuse their telegram_user_id so tokens are preserved across sign-outs.
+    google_id = user_info.get("sub", "")
+    if google_id:
+        existing = await db.async_get_telegram_user_by_google_id(google_id)
+        if existing:
+            telegram_user_id = str(existing["telegram_id"])
+
     # Ensure telegram user row exists
     await db.async_get_or_create_telegram_user(int(telegram_user_id))
 

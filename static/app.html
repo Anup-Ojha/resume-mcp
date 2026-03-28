@@ -900,7 +900,7 @@ function _load(){
     return s;
   } catch { return null; }
 }
-function _clear(){ localStorage.removeItem(SK); localStorage.removeItem('rfc_uid'); }
+function _clear(){ localStorage.removeItem(SK); /* rfc_uid kept — same device reuses same user ID on next sign-in */ }
 function _uid(){
   const s = _load(); if (s) return s.telegram_id;
   let id = localStorage.getItem('rfc_uid');
