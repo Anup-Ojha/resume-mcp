@@ -873,15 +873,13 @@ async def google_callback(code: str = Query(None), state: str = Query(None), err
     elif source == "web":
         # Web app flow: redirect to /app with user info in URL params
         # so the dashboard JS can read them directly — no extra API call needed
-        from fastapi.responses import RedirectResponse
-        import urllib.parse
         avatar = user_info.get("picture", "") or ""
         redirect_url = (
             f"/app?auth=success"
-            f"&uid={urllib.parse.quote(str(telegram_user_id))}"
-            f"&name={urllib.parse.quote(name)}"
-            f"&email={urllib.parse.quote(email)}"
-            f"&avatar={urllib.parse.quote(avatar)}"
+            f"&uid={_up.quote(str(telegram_user_id))}"
+            f"&name={_up.quote(name)}"
+            f"&email={_up.quote(email)}"
+            f"&avatar={_up.quote(avatar)}"
         )
         return RedirectResponse(redirect_url)
     else:
