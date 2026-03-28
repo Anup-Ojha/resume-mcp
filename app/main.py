@@ -796,34 +796,41 @@ async def google_callback(code: str = Query(None), state: str = Query(None), err
         return HTMLResponse(_callback_html("❌ Auth failed", msg, success=False))
 
     mode = state_data.get("mod", "signup")  # "signup" or "signin"
+    import urllib.parse as _up
 
+    # ── Step 1: Look up existing account by Google ID (safe — never blocks login) ──
+    google_id = user_info.get("sub", "")
+    existing = None
     try:
-        # Check if this Google account already belongs to an existing user.
-        # If so, reuse their telegram_user_id so tokens are preserved across sign-outs.
-        google_id = user_info.get("sub", "")
-        existing = None
         if google_id:
             existing = await db.async_get_telegram_user_by_google_id(google_id)
+    except Exception as lookup_exc:
+        logger.warning(f"google_callback: could not look up existing user by google_id: {lookup_exc}")
+        existing = None  # treat as no existing account and continue
 
-        # Validate intent vs account existence
-        if source == "web":
-            import urllib.parse as _up
-            if mode == "signup" and existing:
-                return RedirectResponse(
-                    f"/app?auth=error&msg={_up.quote('An account with this Google address already exists. Please sign in instead.')}&intent=signin"
-                )
-            if mode == "signin" and not existing:
-                return RedirectResponse(
-                    f"/app?auth=error&msg={_up.quote('No account found for this Google address. Please create a new account.')}&intent=signup"
-                )
+    # ── Step 2: Validate sign-up vs sign-in intent before touching DB ──────────
+    if source == "web":
+        if mode == "signup" and existing:
+            return RedirectResponse(
+                f"/app?auth=error"
+                f"&msg={_up.quote('An account with this Google address already exists. Please sign in instead.')}"
+                f"&intent=signin"
+            )
+        if mode == "signin" and not existing:
+            return RedirectResponse(
+                f"/app?auth=error"
+                f"&msg={_up.quote('No account found for this Google address. Please create a new account.')}"
+                f"&intent=signup"
+            )
 
-        if existing:
-            telegram_user_id = str(existing["telegram_id"])
+    # ── Step 3: Reuse existing user's ID so tokens are preserved ────────────────
+    if existing:
+        telegram_user_id = str(existing["telegram_id"])
 
-        # Ensure telegram user row exists
+    # ── Step 4: Save session to DB ──────────────────────────────────────────────
+    try:
         await db.async_get_or_create_telegram_user(int(telegram_user_id))
 
-        # Save Google tokens
         saved = await db.async_save_google_tokens(
             telegram_id   = int(telegram_user_id),
             access_token  = tokens["access_token"],
@@ -844,7 +851,6 @@ async def google_callback(code: str = Query(None), state: str = Query(None), err
                 success=False,
             ))
 
-        # Mark user as registered (Phase 1 — generates user_uuid if not set)
         await db.async_mark_registered(int(telegram_user_id))
 
     except Exception as exc:
