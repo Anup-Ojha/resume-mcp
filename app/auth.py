@@ -40,16 +40,18 @@ def _redirect_uri() -> str:
     return f"{settings.public_api_url.rstrip('/')}/auth/google/callback"
 
 
-def build_auth_url(telegram_user_id: str, source: str = "bot") -> str:
+def build_auth_url(telegram_user_id: str, source: str = "bot", mode: str = "signup") -> str:
     """
     Return the Google OAuth2 URL the user should visit to connect Gmail.
 
     source: 'bot'    — traditional flow (link sent in bot message)
             'webapp' — Mini App flow (callback returns a page that calls
                        Telegram.WebApp.sendData and closes)
+    mode:   'signup' — new user registration (errors if account exists)
+            'signin' — existing user login (errors if no account found)
     """
     from urllib.parse import urlencode
-    state_bytes = json.dumps({"tid": str(telegram_user_id), "src": source}).encode()
+    state_bytes = json.dumps({"tid": str(telegram_user_id), "src": source, "mod": mode}).encode()
     state = base64.urlsafe_b64encode(state_bytes).decode()
     params = {
         "client_id":     settings.google_client_id,

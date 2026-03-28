@@ -514,12 +514,15 @@ class PostgresDB:
     async def async_get_telegram_user_by_google_id(
         self, google_id: str
     ) -> Optional[Dict[str, Any]]:
-        """Find an existing user by their Google account ID (prevents token reset on re-login)."""
+        """Find an existing user by their Google account ID (prevents token reset on re-login).
+        Uses first() to handle duplicate rows from the old bug gracefully."""
         async with AsyncSessionLocal() as session:
             result = await session.execute(
-                select(TelegramUser).where(TelegramUser.google_id == google_id)
+                select(TelegramUser)
+                .where(TelegramUser.google_id == google_id)
+                .order_by(TelegramUser.telegram_id)
             )
-            user = result.scalar_one_or_none()
+            user = result.scalars().first()
             return self._user_to_dict(user) if user else None
 
     async def async_save_google_tokens(

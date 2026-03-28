@@ -754,14 +754,16 @@ async def resume_exists(user_id: str):
 async def get_auth_url(
     telegram_user_id: str = Query(...),
     source: str = Query("bot"),
+    mode: str = Query("signup"),
 ):
     """
     Return a Google OAuth2 URL the Telegram bot (or Mini App) can redirect to.
     source: 'bot' (default) or 'webapp' — controls what the callback page returns.
+    mode:   'signup' (default) or 'signin' — controls account creation vs login validation.
     """
     if not settings.google_client_id:
         raise HTTPException(status_code=503, detail="Google OAuth not configured. Set GOOGLE_CLIENT_ID.")
-    url = auth_module.build_auth_url(telegram_user_id, source=source)
+    url = auth_module.build_auth_url(telegram_user_id, source=source, mode=mode)
     return {"url": url}
 
 
@@ -793,40 +795,66 @@ async def google_callback(code: str = Query(None), state: str = Query(None), err
     if not ok:
         return HTMLResponse(_callback_html("❌ Auth failed", msg, success=False))
 
-    # Check if this Google account already belongs to an existing user.
-    # If so, reuse their telegram_user_id so tokens are preserved across sign-outs.
-    google_id = user_info.get("sub", "")
-    if google_id:
-        existing = await db.async_get_telegram_user_by_google_id(google_id)
+    mode = state_data.get("mod", "signup")  # "signup" or "signin"
+
+    try:
+        # Check if this Google account already belongs to an existing user.
+        # If so, reuse their telegram_user_id so tokens are preserved across sign-outs.
+        google_id = user_info.get("sub", "")
+        existing = None
+        if google_id:
+            existing = await db.async_get_telegram_user_by_google_id(google_id)
+
+        # Validate intent vs account existence
+        if source == "web":
+            import urllib.parse as _up
+            if mode == "signup" and existing:
+                return RedirectResponse(
+                    f"/app?auth=error&msg={_up.quote('An account with this Google address already exists. Please sign in instead.')}&intent=signin"
+                )
+            if mode == "signin" and not existing:
+                return RedirectResponse(
+                    f"/app?auth=error&msg={_up.quote('No account found for this Google address. Please create a new account.')}&intent=signup"
+                )
+
         if existing:
             telegram_user_id = str(existing["telegram_id"])
 
-    # Ensure telegram user row exists
-    await db.async_get_or_create_telegram_user(int(telegram_user_id))
+        # Ensure telegram user row exists
+        await db.async_get_or_create_telegram_user(int(telegram_user_id))
 
-    # Save Google tokens
-    saved = await db.async_save_google_tokens(
-        telegram_id   = int(telegram_user_id),
-        access_token  = tokens["access_token"],
-        refresh_token = tokens.get("refresh_token"),
-        token_expiry  = tokens["token_expiry"],
-        scopes        = tokens["scopes"],
-        google_id     = user_info.get("sub", ""),
-        email         = user_info.get("email", ""),
-        full_name     = user_info.get("name", ""),
-        avatar_url    = user_info.get("picture"),
-    )
-    if not saved:
-        logger.error(f"save_google_tokens returned False for user {telegram_user_id}")
+        # Save Google tokens
+        saved = await db.async_save_google_tokens(
+            telegram_id   = int(telegram_user_id),
+            access_token  = tokens["access_token"],
+            refresh_token = tokens.get("refresh_token"),
+            token_expiry  = tokens["token_expiry"],
+            scopes        = tokens["scopes"],
+            google_id     = user_info.get("sub", ""),
+            email         = user_info.get("email", ""),
+            full_name     = user_info.get("name", ""),
+            avatar_url    = user_info.get("picture"),
+        )
+        if not saved:
+            logger.error(f"save_google_tokens returned False for user {telegram_user_id}")
+            return HTMLResponse(_callback_html(
+                "❌ Database error",
+                "Google login succeeded but we could not save your session.\n"
+                "Please try again or contact support.",
+                success=False,
+            ))
+
+        # Mark user as registered (Phase 1 — generates user_uuid if not set)
+        await db.async_mark_registered(int(telegram_user_id))
+
+    except Exception as exc:
+        logger.exception(f"google_callback DB error for user {telegram_user_id}: {exc}")
         return HTMLResponse(_callback_html(
-            "❌ Database error",
-            "Google login succeeded but we could not save your session.\n"
-            "Please try again or contact support.",
+            "❌ Server error",
+            "Login succeeded but we hit an internal error saving your session.\n"
+            "Please try again. If the problem persists, contact support.",
             success=False,
         ))
-
-    # Mark user as registered (Phase 1 — generates user_uuid if not set)
-    await db.async_mark_registered(int(telegram_user_id))
 
     name  = user_info.get("name", "")
     email = user_info.get("email", "")
