@@ -8,7 +8,7 @@ from the Mini App.
 Reference: https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
 
 Usage:
-    from app.telegram_auth import verify_init_data, parse_init_data_user
+    from app.auth.telegram import verify_init_data, parse_init_data_user
 
     try:
         user = verify_init_data(init_data_string)

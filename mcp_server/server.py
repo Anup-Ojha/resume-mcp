@@ -20,9 +20,9 @@ from mcp.server.sse import SseServerTransport
 from starlette.applications import Starlette
 from starlette.routing import Route
 
-from app.latex_processor import latex_processor
-from app.document_parser import document_parser
-from app.resume_customizer import resume_customizer
+from app.services.latex_processor import latex_processor
+from app.services.document_parser import document_parser
+from app.services.resume_customizer import resume_customizer
 from app.config import settings
 
 
