@@ -42,7 +42,10 @@
       "Bash(find '/d/anup data/All COmpany Projects/local resume creator/static' -type f \\\\\\(-name *.html -o -name *.js -o -name *.ts -o -name *.jsx -o -name *.tsx \\\\\\))",
       "Bash(xargs ls:*)",
       "Bash(grep -E \"\\\\.py$\")",
-      "Bash(\"D:/anup data/All COmpany Projects/local resume creator/bot/__init__.py\")"
+      "Bash(\"D:/anup data/All COmpany Projects/local resume creator/bot/__init__.py\")",
+      "Bash(sed -i 's|from app\\\\.latex_processor import|from app.services.latex_processor import|g' \"D:/anup data/All COmpany Projects/local resume creator/mcp_server/server.py\")",
+      "Bash(sed -i 's|from app\\\\.document_parser import|from app.services.document_parser import|g' \"D:/anup data/All COmpany Projects/local resume creator/mcp_server/server.py\")",
+      "Bash(sed -i 's|from app\\\\.resume_customizer import|from app.services.resume_customizer import|g' \"D:/anup data/All COmpany Projects/local resume creator/mcp_server/server.py\")"
     ]
   }
 }
