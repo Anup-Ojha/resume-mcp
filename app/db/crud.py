@@ -19,8 +19,8 @@ from typing import Any, Dict, Optional, Tuple
 from sqlalchemy import select, update, delete
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from app.database import AsyncSessionLocal
-from app.models import GoogleToken, LegacyUser, ResumeSession, TelegramUser, TokenUsage
+from app.db.database import AsyncSessionLocal
+from app.db.models import GoogleToken, LegacyUser, ResumeSession, TelegramUser, TokenUsage
 
 logger = logging.getLogger(__name__)
 

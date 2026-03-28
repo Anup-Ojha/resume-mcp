@@ -40,7 +40,9 @@
       "Bash(whatsapp)",
       "Bash(PUBLIC_URL \")",
       "Bash(find '/d/anup data/All COmpany Projects/local resume creator/static' -type f \\\\\\(-name *.html -o -name *.js -o -name *.ts -o -name *.jsx -o -name *.tsx \\\\\\))",
-      "Bash(xargs ls:*)"
+      "Bash(xargs ls:*)",
+      "Bash(grep -E \"\\\\.py$\")",
+      "Bash(\"D:/anup data/All COmpany Projects/local resume creator/bot/__init__.py\")"
     ]
   }
 }

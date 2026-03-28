@@ -13,7 +13,7 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 
 # Import all models so Alembic can detect them
-from app.models import Base  # noqa: F401
+from app.db.models import Base  # noqa: F401
 
 # Alembic Config object — gives access to values in alembic.ini
 config = context.config
