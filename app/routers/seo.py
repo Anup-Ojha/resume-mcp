@@ -77,6 +77,12 @@ async def sitemap():
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>{base}/contact</loc>
+    <lastmod>2026-03-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>{base}/blogs/</loc>
     <lastmod>2026-03-29</lastmod>
     <changefreq>weekly</changefreq>
@@ -108,6 +114,66 @@ async def sitemap():
   </url>
   <url>
     <loc>{base}/blogs/best-resume-format-2025.html</loc>
+    <lastmod>2026-03-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>{base}/blogs/resume-summary-examples-2025.html</loc>
+    <lastmod>2026-03-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>{base}/blogs/resume-keywords-ats-2025.html</loc>
+    <lastmod>2026-03-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>{base}/blogs/one-page-vs-two-page-resume.html</loc>
+    <lastmod>2026-03-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>{base}/blogs/resume-bullet-points-examples.html</loc>
+    <lastmod>2026-03-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>{base}/blogs/career-change-resume-guide.html</loc>
+    <lastmod>2026-03-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>{base}/blogs/how-to-explain-employment-gaps.html</loc>
+    <lastmod>2026-03-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>{base}/blogs/linkedin-vs-resume-differences.html</loc>
+    <lastmod>2026-03-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>{base}/blogs/cover-letter-with-ai-2025.html</loc>
+    <lastmod>2026-03-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>{base}/blogs/resume-skills-section-guide.html</loc>
+    <lastmod>2026-03-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>{base}/blogs/remote-job-resume-tips.html</loc>
     <lastmod>2026-03-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
@@ -184,6 +250,16 @@ async def serve_mcp_page():
 async def serve_privacy():
     """Serve the Privacy Policy page"""
     html_file = settings.static_dir / "privacy.html"
+    if html_file.exists():
+        return FileResponse(html_file)
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("/")
+
+
+@router.get("/contact")
+async def serve_contact():
+    """Serve the Contact page"""
+    html_file = settings.static_dir / "contact.html"
     if html_file.exists():
         return FileResponse(html_file)
     from fastapi.responses import RedirectResponse

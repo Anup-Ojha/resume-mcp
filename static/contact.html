@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact Us — Resume-MCP AI Resume Generator</title>
+  <meta name="description" content="Contact Resume-MCP for support, feedback, or partnership enquiries. Reach Anup Ojha by email or phone." />
+  <link rel="canonical" href="https://resume-mcp.site/contact" />
+  <link rel="icon" href="/static/logo.svg" type="image/svg+xml" />
+  <meta name="robots" content="index, follow" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Contact Us — Resume-MCP" />
+  <meta property="og:description" content="Get in touch with the Resume-MCP team for support, feedback, or partnership enquiries." />
+  <meta property="og:url" content="https://resume-mcp.site/contact" />
+  <meta property="og:image" content="https://resume-mcp.site/static/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Contact Us — Resume-MCP" />
+  <meta name="twitter:description" content="Get in touch with the Resume-MCP team." />
+
+  <style>
+    :root {
+      --bg:     #ffffff;
+      --bg2:    #f8f9fc;
+      --border: #e5e7eb;
+      --text-1: #111827;
+      --text-2: #374151;
+      --text-3: #6b7280;
+      --accent: #2563eb;
+      --accent-h: #1d4ed8;
+      --green:  #16a34a;
+      --radius: 12px;
+    }
+    [data-theme="dark"] {
+      --bg:     #0f1117;
+      --bg2:    #1a1d27;
+      --border: #2a2d3a;
+      --text-1: #f1f5f9;
+      --text-2: #cbd5e1;
+      --text-3: #64748b;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text-2); line-height: 1.65; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      padding: 0 1.5rem; height: 60px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-logo { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 1rem; color: var(--text-1); text-decoration: none; }
+    .nav-logo img { width: 28px; height: 28px; border-radius: 7px; object-fit: cover; }
+    .nav-links { display: flex; align-items: center; gap: 1.5rem; font-size: .9rem; }
+    .nav-links a { color: var(--text-3); }
+    .nav-links a:hover { color: var(--text-1); text-decoration: none; }
+    .btn-cta {
+      background: var(--accent); color: #fff !important;
+      padding: .45rem 1.1rem; border-radius: 8px; font-weight: 600; font-size: .85rem;
+    }
+    .btn-cta:hover { background: var(--accent-h); text-decoration: none !important; }
+    .theme-btn { background: none; border: 1px solid var(--border); border-radius: 8px; padding: .35rem .7rem; cursor: pointer; font-size: .85rem; color: var(--text-2); }
+
+    /* ── Hero ── */
+    .hero {
+      max-width: 720px; margin: 0 auto; padding: 5rem 1.5rem 3rem;
+      text-align: center;
+    }
+    .hero h1 { font-size: 2.25rem; font-weight: 800; color: var(--text-1); line-height: 1.2; margin-bottom: .75rem; }
+    .hero p { font-size: 1.05rem; color: var(--text-3); max-width: 480px; margin: 0 auto; }
+
+    /* ── Contact card ── */
+    .contact-wrap {
+      max-width: 640px; margin: 0 auto; padding: 0 1.5rem 5rem;
+      display: grid; gap: 1.25rem;
+    }
+    .card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.75rem 2rem;
+      display: flex; align-items: flex-start; gap: 1.25rem;
+    }
+    .card-icon {
+      flex-shrink: 0; width: 48px; height: 48px; border-radius: 12px;
+      background: var(--accent); display: flex; align-items: center; justify-content: center;
+    }
+    .card-icon svg { width: 22px; height: 22px; fill: #fff; }
+    .card-body {}
+    .card-label { font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--text-3); margin-bottom: .3rem; }
+    .card-value { font-size: 1.1rem; font-weight: 600; color: var(--text-1); }
+    .card-value a { color: var(--accent); }
+    .card-sub { font-size: .875rem; color: var(--text-3); margin-top: .2rem; }
+
+    /* person card */
+    .person-card {
+      background: linear-gradient(135deg, var(--accent) 0%, #1d4ed8 100%);
+      border-radius: var(--radius); padding: 2rem;
+      display: flex; align-items: center; gap: 1.5rem; color: #fff;
+    }
+    .person-avatar {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: rgba(255,255,255,.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.75rem; font-weight: 800; flex-shrink: 0;
+    }
+    .person-name { font-size: 1.3rem; font-weight: 700; }
+    .person-role { font-size: .9rem; opacity: .8; margin-top: .15rem; }
+
+    /* ── Footer ── */
+    footer { border-top: 1px solid var(--border); }
+    .foot-in {
+      max-width: 1080px; margin: 0 auto; padding: 1.5rem 2rem;
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem;
+    }
+    .foot-logo { font-weight: 700; color: var(--text-1); display: flex; align-items: center; gap: 8px; font-size: .9375rem; }
+    .foot-nav { display: flex; gap: 1.25rem; flex-wrap: wrap; }
+    .foot-nav a { font-size: .875rem; color: var(--text-3); }
+    .foot-nav a:hover { color: var(--text-1); }
+    .foot-copy { font-size: .8125rem; color: var(--text-3); }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">
+    <img src="/static/logo.png" alt="Resume-MCP" onerror="this.src='/static/logo.svg'" />
+    Resume-MCP
+  </a>
+  <div class="nav-links">
+    <a href="/features">Features</a>
+    <a href="/mcp">MCP</a>
+    <a href="/blogs/">Blog</a>
+    <a href="/contact">Contact</a>
+    <a href="/app" class="btn-cta">Open App</a>
+    <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle theme">🌙</button>
+  </div>
+</nav>
+
+<section class="hero">
+  <h1>Get in Touch</h1>
+  <p>Have a question, feedback, or want to collaborate? We'd love to hear from you.</p>
+</section>
+
+<div class="contact-wrap">
+
+  <!-- Who you're contacting -->
+  <div class="person-card">
+    <div class="person-avatar">AO</div>
+    <div>
+      <div class="person-name">Anup Ojha</div>
+      <div class="person-role">Founder &amp; Developer — Resume-MCP</div>
+    </div>
+  </div>
+
+  <!-- Email -->
+  <div class="card">
+    <div class="card-icon">
+      <svg viewBox="0 0 24 24"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/></svg>
+    </div>
+    <div class="card-body">
+      <div class="card-label">Email</div>
+      <div class="card-value"><a href="mailto:anup2001ojha@gmail.com">anup2001ojha@gmail.com</a></div>
+      <div class="card-sub">Best for support, feedback, or partnership enquiries. We reply within 24 hours.</div>
+    </div>
+  </div>
+
+  <!-- Phone -->
+  <div class="card">
+    <div class="card-icon" style="background:#16a34a">
+      <svg viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C9.6 21 3 14.4 3 6c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z"/></svg>
+    </div>
+    <div class="card-body">
+      <div class="card-label">Phone / WhatsApp</div>
+      <div class="card-value"><a href="tel:+919309109229">+91 93091 09229</a></div>
+      <div class="card-sub">Available Mon–Sat, 10am–7pm IST.</div>
+    </div>
+  </div>
+
+  <!-- Telegram -->
+  <div class="card">
+    <div class="card-icon" style="background:#0088cc">
+      <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm5.94 8.19-2.04 9.6c-.15.68-.54.84-1.1.52l-3-2.21-1.45 1.4c-.16.16-.3.3-.61.3l.22-3.08 5.6-5.06c.24-.22-.06-.34-.38-.12L6.93 14.4 3.97 13.5c-.66-.21-.67-.66.14-.97l11.63-4.49c.54-.2 1.02.13.2.15z"/></svg>
+    </div>
+    <div class="card-body">
+      <div class="card-label">Telegram Bot</div>
+      <div class="card-value"><a href="https://t.me/ResumeGeneratorMCPBot" target="_blank" rel="noopener">@ResumeGeneratorMCPBot</a></div>
+      <div class="card-sub">Use the bot directly to create and tailor your resume with AI.</div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <div class="foot-in">
+    <div class="foot-logo">
+      <img src="/static/logo.png" alt="Resume-MCP" style="width:22px;height:22px;border-radius:5px;object-fit:cover" onerror="this.style.display='none'">
+      Resume-MCP
+    </div>
+    <div class="foot-nav">
+      <a href="/features">Features</a>
+      <a href="/mcp">MCP</a>
+      <a href="/blogs/">Blog</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/contact">Contact</a>
+    </div>
+    <div class="foot-copy">Built with FastAPI · Gemini · LaTeX</div>
+  </div>
+</footer>
+
+<script>
+  function toggleTheme() {
+    const h = document.documentElement;
+    const t = h.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    h.setAttribute('data-theme', t);
+    localStorage.setItem('rf-theme', t);
+  }
+  const saved = localStorage.getItem('rf-theme');
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+</script>
+</body>
+</html>
