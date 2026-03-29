@@ -21,6 +21,7 @@ from typing import Optional
 
 from app.config import settings
 from app.services.latex_processor import latex_processor
+from app.db.crud import db
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -94,15 +95,36 @@ async def generate_pdf(request: GeneratePDFRequest):
 @router.get("/api/pdfs")
 async def list_pdfs(user_id: Optional[str] = Query(None)):
     """
-    List generated PDFs. If user_id is provided, only return files
-    belonging to that user (filename contains the user_id string).
+    List generated PDFs.
+    If user_id given: return the user's 3 resume slots from DB (master + tailored_1 + tailored_2).
+    Otherwise: return all PDFs on disk (admin/debug use).
     """
     try:
-        pdfs = latex_processor.list_generated_pdfs()
         if user_id:
             clean_id = str(user_id).strip()
-            pdfs = [p for p in pdfs if clean_id in p.get("filename", "")]
-        return {"success": True, "pdfs": pdfs}
+            try:
+                slots = await db.async_get_user_resumes(int(clean_id))
+            except Exception:
+                slots = []
+            # Enrich with file size + existence check
+            pdfs = []
+            for slot in slots:
+                fname = slot.get("filename")
+                if not fname:
+                    continue
+                fpath = settings.output_dir / fname
+                pdfs.append({
+                    "filename":   fname,
+                    "slot":       slot["slot"],
+                    "job_title":  slot.get("job_title"),
+                    "updated_at": slot.get("updated_at"),
+                    "exists":     fpath.exists(),
+                    "size_kb":    round(fpath.stat().st_size / 1024, 1) if fpath.exists() else 0,
+                })
+            return {"success": True, "pdfs": pdfs}
+        else:
+            pdfs = latex_processor.list_generated_pdfs()
+            return {"success": True, "pdfs": pdfs}
     except Exception as e:
         logger.error(f"Error listing PDFs: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -179,9 +201,9 @@ async def get_stats():
     """Return live usage statistics for the dashboard."""
     try:
         all_pdfs = latex_processor.list_generated_pdfs()
-        total = len(all_pdfs)
-        created  = sum(1 for p in all_pdfs if p.get("filename", "").startswith("resume_"))
-        tailored = sum(1 for p in all_pdfs if p.get("filename", "").startswith(("tailored_", "apply_")))
+        total    = len(all_pdfs)
+        created  = sum(1 for p in all_pdfs if "_master.pdf" in p.get("filename", ""))
+        tailored = sum(1 for p in all_pdfs if "_tailored_" in p.get("filename", ""))
         other    = total - created - tailored
         return {
             "success": True,

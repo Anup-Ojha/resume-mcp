@@ -20,7 +20,7 @@ from sqlalchemy import select, update, delete
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.db.database import AsyncSessionLocal
-from app.db.models import GoogleToken, LegacyUser, ResumeSession, TelegramUser, TokenUsage
+from app.db.models import GoogleToken, LegacyUser, ResumeSession, TelegramUser, TokenUsage, UserResume
 
 logger = logging.getLogger(__name__)
 
@@ -487,6 +487,137 @@ class PostgresDB:
             session.add(entry)
             await session.commit()
             return True
+
+    # ── Resume slot management (3 slots per user) ─────────────────────────────
+
+    async def async_save_resume_slot(
+        self,
+        telegram_id: int,
+        slot: str,
+        filename: str,
+        job_title: Optional[str] = None,
+    ) -> bool:
+        """Upsert a resume slot (master / tailored_1 / tailored_2) for a user."""
+        try:
+            async with AsyncSessionLocal() as session:
+                stmt = pg_insert(UserResume).values(
+                    telegram_id=telegram_id,
+                    slot=slot,
+                    filename=filename,
+                    job_title=job_title,
+                    updated_at=datetime.now(timezone.utc),
+                ).on_conflict_do_update(
+                    index_elements=["telegram_id", "slot"],
+                    set_={
+                        "filename":   filename,
+                        "job_title":  job_title,
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                )
+                await session.execute(stmt)
+                await session.commit()
+                return True
+        except Exception as e:
+            logger.error(f"async_save_resume_slot error: {e}")
+            return False
+
+    async def async_get_user_resumes(self, telegram_id: int) -> list:
+        """Return all resume slots for a user as a list of dicts."""
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(UserResume)
+                .where(UserResume.telegram_id == telegram_id)
+                .order_by(UserResume.slot)
+            )
+            rows = result.scalars().all()
+            return [
+                {
+                    "slot":       r.slot,
+                    "filename":   r.filename,
+                    "job_title":  r.job_title,
+                    "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+                }
+                for r in rows
+            ]
+
+    async def async_rotate_tailored(
+        self,
+        telegram_id: int,
+        new_filename: str,
+        job_title: Optional[str] = None,
+    ) -> bool:
+        """
+        Rotate tailored resume slots:
+          1. Delete tailored_2 file from disk (if exists)
+          2. Move tailored_1 → tailored_2 (rename file + update DB)
+          3. Save new filename as tailored_1
+        """
+        import os
+        from app.config import settings
+
+        try:
+            async with AsyncSessionLocal() as session:
+                # Fetch current slots
+                res = await session.execute(
+                    select(UserResume).where(
+                        UserResume.telegram_id == telegram_id,
+                        UserResume.slot.in_(["tailored_1", "tailored_2"]),
+                    )
+                )
+                slots: dict = {r.slot: r for r in res.scalars().all()}
+
+                # Step 1: delete tailored_2 file from disk
+                t2 = slots.get("tailored_2")
+                if t2 and t2.filename:
+                    t2_path = settings.output_dir / t2.filename
+                    try:
+                        if t2_path.exists():
+                            t2_path.unlink()
+                    except Exception as del_err:
+                        logger.warning(f"Could not delete tailored_2 file: {del_err}")
+
+                # Step 2: rename tailored_1 → tailored_2 on disk + update DB
+                t1 = slots.get("tailored_1")
+                if t1 and t1.filename:
+                    t1_path = settings.output_dir / t1.filename
+                    t2_new_name = f"{telegram_id}_tailored_2.pdf"
+                    t2_new_path = settings.output_dir / t2_new_name
+                    try:
+                        if t1_path.exists():
+                            t1_path.rename(t2_new_path)
+                    except Exception as mv_err:
+                        logger.warning(f"Could not rename tailored_1 to tailored_2: {mv_err}")
+                    # Upsert tailored_2 in DB
+                    stmt2 = pg_insert(UserResume).values(
+                        telegram_id=telegram_id,
+                        slot="tailored_2",
+                        filename=t2_new_name,
+                        job_title=t1.job_title,
+                        updated_at=datetime.now(timezone.utc),
+                    ).on_conflict_do_update(
+                        index_elements=["telegram_id", "slot"],
+                        set_={"filename": t2_new_name, "job_title": t1.job_title, "updated_at": datetime.now(timezone.utc)},
+                    )
+                    await session.execute(stmt2)
+
+                # Step 3: save new as tailored_1
+                stmt1 = pg_insert(UserResume).values(
+                    telegram_id=telegram_id,
+                    slot="tailored_1",
+                    filename=new_filename,
+                    job_title=job_title,
+                    updated_at=datetime.now(timezone.utc),
+                ).on_conflict_do_update(
+                    index_elements=["telegram_id", "slot"],
+                    set_={"filename": new_filename, "job_title": job_title, "updated_at": datetime.now(timezone.utc)},
+                )
+                await session.execute(stmt1)
+                await session.commit()
+                return True
+
+        except Exception as e:
+            logger.error(f"async_rotate_tailored error: {e}")
+            return False
 
     # ── Async public interface (for FastAPI endpoints — avoids _run() in event loop) ──
 

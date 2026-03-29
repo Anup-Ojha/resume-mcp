@@ -15,7 +15,7 @@ from typing import Optional
 
 from sqlalchemy import (
     BigInteger, Boolean, DateTime, ForeignKey,
-    Integer, Text, func,
+    Integer, Text, UniqueConstraint, func,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -114,6 +114,37 @@ class TokenUsage(Base):
     tokens_used: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at:  Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, server_default=func.now()
+    )
+
+
+# ── User Resumes (3-slot storage per user) ────────────────────────────────────
+
+class UserResume(Base):
+    """
+    Tracks the 3 resume slots per user.
+    slot: 'master' (full resume from /create) or 'tailored_1'/'tailored_2' (latest tailored versions).
+    Filename convention: {telegram_id}_{slot}.pdf  e.g. 1234567890_master.pdf
+    """
+    __tablename__ = "user_resumes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    telegram_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("telegram_users.telegram_id"), nullable=False
+    )
+    # 'master' | 'tailored_1' | 'tailored_2'
+    slot: Mapped[str] = mapped_column(Text, nullable=False)
+    filename: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    job_title: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # shown in /list
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now(), onupdate=_utcnow
+    )
+
+    __table_args__ = (
+        UniqueConstraint("telegram_id", "slot", name="uq_user_resume_slot"),
     )
 
 

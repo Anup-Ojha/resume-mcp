@@ -856,16 +856,12 @@ async def create_resume_v2(request: CreateResumeV2Request):
     if not ok:
         raise HTTPException(status_code=500, detail=msg)
 
-    # Auto-name the PDF from the AI-extracted candidate name
-    candidate_name = resume_dict.get("name", "")
-    out_filename   = _name_to_filename(candidate_name) if candidate_name else f"resume_{clean_uid}"
+    # Master slot filename: {uid}_master.pdf
+    out_filename = f"{clean_uid}_master"
 
-    # Save JSON for debugging / inspection + as user lookup key
+    # Save JSON as resume_{uid}.json (tailor pipeline reads this)
     try:
         import json as _json
-        json_path = settings.output_dir / f"{out_filename}.json"
-        json_path.write_text(_json.dumps(resume_dict, indent=2, ensure_ascii=False), encoding="utf-8")
-        # Also save as resume_{user_id}.json so apply/tailor can find it by user
         user_json_path = settings.output_dir / f"resume_{clean_uid}.json"
         user_json_path.write_text(_json.dumps(resume_dict, indent=2, ensure_ascii=False), encoding="utf-8")
     except Exception as e:
@@ -879,6 +875,14 @@ async def create_resume_v2(request: CreateResumeV2Request):
     # 3 — LaTeX → PDF
     pdf_ok, _, pdf_msg = latex_processor.compile_latex_to_pdf(latex, out_filename)
     if pdf_ok:
+        # Register in DB slot
+        try:
+            candidate_name = resume_dict.get("name", "")
+            await db.async_save_resume_slot(
+                int(clean_uid), "master", f"{out_filename}.pdf", job_title=candidate_name or None
+            )
+        except Exception as slot_err:
+            logger.warning(f"Could not save resume slot: {slot_err}")
         return PDFResponse(success=True, message=pdf_msg, filename=f"{out_filename}.pdf")
     raise HTTPException(status_code=500, detail=pdf_msg)
 
@@ -921,19 +925,12 @@ async def tailor_resume_v2(request: TailorResumeV2Request):
     if not ok:
         raise HTTPException(status_code=500, detail=msg)
 
-    # Auto-name from AI-extracted name (prefix "Tailored_" to distinguish)
-    candidate_name = resume_dict.get("name", "")
-    out_filename   = (
-        f"Tailored_{_name_to_filename(candidate_name)}"
-        if candidate_name else f"tailored_{clean_uid}"
-    )
+    # Tailored slot filename: {uid}_tailored_1.pdf (rotate displaces old tailored_2)
+    out_filename = f"{clean_uid}_tailored_1"
 
-    # Save JSON for debugging / inspection + as user lookup key
+    # Save JSON as resume_{uid}.json (apply pipeline reads this)
     try:
         import json as _json
-        json_path = settings.output_dir / f"{out_filename}.json"
-        json_path.write_text(_json.dumps(resume_dict, indent=2, ensure_ascii=False), encoding="utf-8")
-        # Also save as resume_{user_id}.json so apply can find it by user
         user_json_path = settings.output_dir / f"resume_{clean_uid}.json"
         user_json_path.write_text(_json.dumps(resume_dict, indent=2, ensure_ascii=False), encoding="utf-8")
     except Exception as e:
@@ -944,7 +941,13 @@ async def tailor_resume_v2(request: TailorResumeV2Request):
     if not ok2:
         raise HTTPException(status_code=500, detail=f"Template render failed: {msg2}")
 
-    # 3 — LaTeX → PDF
+    # 3 — LaTeX → PDF (rotate old tailored slots first, then compile)
+    job_title = (requirements or {}).get("job_title") or resume_dict.get("name") or None
+    try:
+        await db.async_rotate_tailored(int(clean_uid), f"{out_filename}.pdf", job_title=job_title)
+    except Exception as rot_err:
+        logger.warning(f"Could not rotate tailored slots: {rot_err}")
+
     pdf_ok, _, pdf_msg = latex_processor.compile_latex_to_pdf(latex, out_filename)
     if pdf_ok:
         return PDFResponse(success=True, message=pdf_msg, filename=f"{out_filename}.pdf")
@@ -953,9 +956,8 @@ async def tailor_resume_v2(request: TailorResumeV2Request):
 
 @router.get("/api/resume-exists/{user_id}")
 async def resume_exists(user_id: str):
-    """Check whether a saved resume exists for a Telegram user."""
+    """Check whether a saved master resume exists for a user."""
     clean = user_id.strip()
-    has_tex  = (settings.output_dir / f"resume_{clean}.tex").exists()
-    has_pdf  = (settings.output_dir / f"resume_{clean}.pdf").exists()
+    has_pdf  = (settings.output_dir / f"{clean}_master.pdf").exists()
     has_json = (settings.output_dir / f"resume_{clean}.json").exists()
-    return {"exists": has_tex or has_pdf or has_json, "has_latex": has_tex, "has_pdf": has_pdf, "has_json": has_json}
+    return {"exists": has_pdf or has_json, "has_pdf": has_pdf, "has_json": has_json}
