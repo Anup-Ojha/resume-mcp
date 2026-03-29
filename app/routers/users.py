@@ -8,11 +8,12 @@ Routes:
   GET  /api/users/{telegram_id}/profile      → Get full user profile
 """
 import logging
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from datetime import datetime, timezone
 
 from app.db.crud import db
+from app.auth.deps import require_same_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -43,7 +44,7 @@ async def create_or_get_user_session(request: Request):
 
 
 @router.get("/api/users/{telegram_id}/balance")
-async def get_token_balance(telegram_id: str):
+async def get_token_balance(telegram_id: str, _uid: str = Depends(require_same_user)):
     """Get token balance for a user (auto-creates if not found)."""
     try:
         profile = await db.async_get_telegram_user(int(telegram_id))
@@ -86,7 +87,7 @@ async def get_token_balance(telegram_id: str):
 
 
 @router.post("/api/users/{telegram_id}/deduct")
-async def deduct_tokens(telegram_id: str, request: Request):
+async def deduct_tokens(telegram_id: str, request: Request, _uid: str = Depends(require_same_user)):
     """Check and deduct tokens for an operation."""
     data = await request.json()
     operation = data.get("operation", "")
@@ -103,7 +104,7 @@ async def deduct_tokens(telegram_id: str, request: Request):
 
 
 @router.get("/api/users/{telegram_id}/profile")
-async def get_user_profile(telegram_id: str):
+async def get_user_profile(telegram_id: str, _uid: str = Depends(require_same_user)):
     """Get full user profile."""
     try:
         profile = await db.async_get_telegram_user(int(telegram_id))

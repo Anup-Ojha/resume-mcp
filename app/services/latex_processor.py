@@ -89,6 +89,9 @@ class LaTeXProcessor:
         if not is_valid:
             return False, None, f"Validation error: {validation_msg}"
         
+        # Sanitise output_filename to prevent path traversal
+        output_filename = re.sub(r"[^a-zA-Z0-9_\-]", "_", output_filename).strip("_") or "resume"
+
         # Create a temporary directory for compilation
         temp_work_dir = self.temp_dir / f"compile_{output_filename}"
         temp_work_dir.mkdir(parents=True, exist_ok=True)
@@ -104,6 +107,7 @@ class LaTeXProcessor:
                     [
                         self.compiler,
                         "-interaction=nonstopmode",
+                        "-no-shell-escape",
                         "-output-directory", str(temp_work_dir),
                         str(tex_file)
                     ],

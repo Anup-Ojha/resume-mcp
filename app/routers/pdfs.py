@@ -13,7 +13,7 @@ Routes:
   GET    /api/template           → Get default LaTeX template
 """
 import logging
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 from pathlib import Path
@@ -22,6 +22,7 @@ from typing import Optional
 from app.config import settings
 from app.services.latex_processor import latex_processor
 from app.db.crud import db
+from app.auth.deps import require_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -53,7 +54,7 @@ class RenamePDFRequest(BaseModel):
 
 
 @router.post("/api/generate", response_model=PDFResponse)
-async def generate_pdf(request: GeneratePDFRequest):
+async def generate_pdf(request: GeneratePDFRequest, _uid: str = Depends(require_user)):
     """
     Generate a PDF from LaTeX code
 
@@ -137,8 +138,8 @@ async def download_pdf(filename: str, user_id: Optional[str] = Query(None)):
     If user_id is provided, verifies the filename belongs to that user.
     """
     try:
-        # Ownership check — filename must contain the user_id
-        if user_id and str(user_id).strip() not in filename:
+        # Ownership check — filename must start with user_id_ prefix
+        if user_id and not filename.startswith(f"{str(user_id).strip()}_"):
             raise HTTPException(status_code=403, detail="Access denied: this file does not belong to you.")
 
         pdf_path = latex_processor.get_pdf_path(filename)
@@ -164,7 +165,7 @@ async def delete_pdf(filename: str, user_id: Optional[str] = Query(None)):
     If user_id is provided, verifies the filename belongs to that user.
     """
     try:
-        if user_id and str(user_id).strip() not in filename:
+        if user_id and not filename.startswith(f"{str(user_id).strip()}_"):
             raise HTTPException(status_code=403, detail="Access denied: this file does not belong to you.")
 
         success, message = latex_processor.delete_pdf(filename)
@@ -233,13 +234,16 @@ async def rename_pdf(request: RenamePDFRequest):
     cur = request.current_filename.removesuffix(".pdf")
     new = request.new_filename.removesuffix(".pdf")
 
-    # Sanitise new name
+    # Sanitise both names to prevent path traversal
     import re as _re
+    cur_safe = _re.sub(r"[^a-zA-Z0-9_\-]", "_", cur).strip("_")
     new_safe = _re.sub(r"[^a-zA-Z0-9_\-]", "_", new).strip("_")
+    if not cur_safe:
+        raise HTTPException(status_code=400, detail="current_filename is invalid")
     if not new_safe:
         raise HTTPException(status_code=400, detail="new_filename is invalid")
 
-    cur_path = settings.output_dir / f"{cur}.pdf"
+    cur_path = settings.output_dir / f"{cur_safe}.pdf"
     if not cur_path.exists():
         raise HTTPException(status_code=404, detail=f"PDF not found: {cur}.pdf")
 
@@ -247,7 +251,7 @@ async def rename_pdf(request: RenamePDFRequest):
     try:
         cur_path.rename(new_path)
         # Also rename companion .json if it exists
-        cur_json = settings.output_dir / f"{cur}.json"
+        cur_json = settings.output_dir / f"{cur_safe}.json"
         if cur_json.exists():
             cur_json.rename(settings.output_dir / f"{new_safe}.json")
         return PDFResponse(success=True, message=f"Renamed to {new_safe}.pdf", filename=f"{new_safe}.pdf")

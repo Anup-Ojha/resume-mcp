@@ -17,7 +17,7 @@ Routes:
 """
 import tempfile
 import logging
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
@@ -29,6 +29,7 @@ from app.db.crud import db
 from app.services.latex_processor import latex_processor
 from app.services.document_parser import document_parser
 from app.services.resume_customizer import resume_customizer
+from app.auth.deps import require_user
 import app.auth.google as auth_module
 
 logger = logging.getLogger(__name__)
@@ -233,7 +234,8 @@ def _resume_dict_to_text(d: dict) -> str:
 @router.post("/api/parse-jd")
 async def parse_jd(
     jd_file: Optional[UploadFile] = File(None),
-    jd_text: Optional[str] = Form(None)
+    jd_text: Optional[str] = Form(None),
+    _uid: str = Depends(require_user),
 ):
     """
     Parse job description from file or text and extract requirements
@@ -298,7 +300,8 @@ async def customize_resume(
     jd_file: Optional[UploadFile] = File(None),
     jd_text: Optional[str] = Form(None),
     user_details: Optional[str] = Form(None),  # JSON string
-    filename: str = Form("customized_resume")
+    filename: str = Form("customized_resume"),
+    _uid: str = Depends(require_user),
 ):
     """
     Generate a customized resume based on job description
@@ -564,7 +567,7 @@ async def update_resume(request: UpdateResumeRequest):
 
 
 @router.post("/api/enhance-bullets")
-async def enhance_bullets(request: EnhanceBulletsRequest):
+async def enhance_bullets(request: EnhanceBulletsRequest, _uid: str = Depends(require_user)):
     """
     Transform a basic resume bullet into 3 high-impact ATS-optimized variations.
 
@@ -791,6 +794,7 @@ async def gmail_search(
 async def extract_jd_details(
     jd_file: Optional[UploadFile] = File(None),
     jd_text: Optional[str] = Form(None),
+    _uid: str = Depends(require_user),
 ):
     """Extract recipient email, job title, and company name from a JD file or text."""
     try:

@@ -997,6 +997,13 @@ const show = (id, d='block') => $(id).style.display = d;
 const txt  = (id, v) => { const e = $(id); if(e) e.textContent = v; };
 const img  = (id, src) => { const e = $(id); if(e && src) e.src = src; };
 
+// Inject X-User-Id header on all authenticated API calls
+function authHeaders(extra) {
+  const h = { ...(extra || {}) };
+  if (user && user.telegram_id) h['X-User-Id'] = String(user.telegram_id);
+  return h;
+}
+
 function renderSignIn(err, intent) {
   hide('loading'); hide('app');
   show('signin-screen', 'flex');
@@ -1043,7 +1050,7 @@ function updateTokUI(t, plan) {
 async function fetchBalance() {
   if (!user) return;
   try {
-    const r = await fetch(`/api/users/${user.telegram_id}/balance`);
+    const r = await fetch(`/api/users/${user.telegram_id}/balance`, { headers: authHeaders() });
     if (!r.ok) return;
     const d = await r.json();
     if (!d.ok) return;
@@ -1159,7 +1166,7 @@ async function createResume() {
   if (!det) { showRes('c-res','Please describe your experience first.',false); return; }
   clearRes('c-res'); setLoad('c-btn','c-spin',true);
   try {
-    const r = await fetch('/api/v2/create-resume', { method:'POST', headers:{'Content-Type':'application/json'},
+    const r = await fetch('/api/v2/create-resume', { method:'POST', headers: authHeaders({'Content-Type':'application/json'}),
       body: JSON.stringify({ user_id: user.telegram_id, user_details_text: det }) });
     const d = await r.json();
     if (r.status === 402) { showRes('c-res', d.detail || 'Not enough tokens.', false); return; }
@@ -1178,7 +1185,7 @@ async function tailorResume() {
   if (!jd) { showRes('t-res','Please paste a job description.',false); return; }
   clearRes('t-res'); setLoad('t-btn','t-spin',true);
   try {
-    const r = await fetch('/api/v2/tailor-resume', { method:'POST', headers:{'Content-Type':'application/json'},
+    const r = await fetch('/api/v2/tailor-resume', { method:'POST', headers: authHeaders({'Content-Type':'application/json'}),
       body: JSON.stringify({ user_id: user.telegram_id, jd_text: jd, resume_text: $('t-res').value?.trim() || '' }) });
     const d = await r.json();
     if (r.status === 402) { showRes('t-res', d.detail || 'Not enough tokens.', false); return; }
@@ -1197,7 +1204,7 @@ async function updateResume() {
   if (!ins) { showRes('u-res','Please describe what to update.',false); return; }
   clearRes('u-res'); setLoad('u-btn','u-spin',true);
   try {
-    const r = await fetch('/api/update-resume', { method:'POST', headers:{'Content-Type':'application/json'},
+    const r = await fetch('/api/update-resume', { method:'POST', headers: authHeaders({'Content-Type':'application/json'}),
       body: JSON.stringify({ user_id: user.telegram_id, update_instructions: ins }) });
     const d = await r.json();
     if (r.status === 402) { showRes('u-res', d.detail || 'Not enough tokens.', false); return; }
@@ -1215,7 +1222,7 @@ async function loadPDFs() {
   if (!user || !wrap) return;
   wrap.innerHTML = '<div class="empty-state"><div class="ld-spin" style="margin:0 auto 10px"></div>Loading…</div>';
   try {
-    const d = await fetch(`/api/pdfs?user_id=${user.telegram_id}`).then(r=>r.json());
+    const d = await fetch(`/api/pdfs?user_id=${user.telegram_id}`, { headers: authHeaders() }).then(r=>r.json());
     const files = d.files || d.pdfs || [];
     if (!files.length) {
       wrap.innerHTML = '<div class="empty-state"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>No PDFs yet — create your first resume above!</div>';
@@ -1242,7 +1249,7 @@ async function loadPDFs() {
 
 async function delPDF(name) {
   if (!confirm(`Delete ${name}?`)) return;
-  try { await fetch(`/api/pdfs/${name}`, {method:'DELETE'}); loadPDFs(); }
+  try { await fetch(`/api/pdfs/${name}?user_id=${user.telegram_id}`, {method:'DELETE', headers: authHeaders()}); loadPDFs(); }
   catch { alert('Delete failed.'); }
 }
 
@@ -1347,7 +1354,7 @@ async function applyViaEmail() {
       fd.append('resume_text', rt);
     }
 
-    const r = await fetch('/api/apply-smart', { method: 'POST', body: fd });
+    const r = await fetch('/api/apply-smart', { method: 'POST', headers: authHeaders(), body: fd });
     const d = await r.json();
 
     if (r.status === 401) {
@@ -1386,7 +1393,7 @@ async function loadBalTab() {
   clearRes('bal-res');
   refreshBalPanel({ tokens_remaining: user.tokens, plan: user.plan });
   try {
-    const r = await fetch(`/api/users/${user.telegram_id}/balance`);
+    const r = await fetch(`/api/users/${user.telegram_id}/balance`, { headers: authHeaders() });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();
     if (!d.ok) throw new Error('not ok');
